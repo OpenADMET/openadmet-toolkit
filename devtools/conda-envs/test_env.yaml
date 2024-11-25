@@ -20,7 +20,7 @@ dependencies:
   - codecov
   - pre-commit
 
-
     # Pip-only installs
-  #- pip:
-  #  - codecov
+  - pip:
+    - chembl_downloader
+
