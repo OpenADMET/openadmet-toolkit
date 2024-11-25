@@ -11,7 +11,7 @@ dependencies:
   - numpy
   - pandas
   - rdkit
-  - cariosvg
+  - cairosvg
   - python-pptx
 
     # Testing
