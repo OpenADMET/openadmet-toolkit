@@ -4,14 +4,22 @@ channels:
   - defaults
 dependencies:
     # Base depends
-  - python
+  - python >= 3.10
   - pip
+
+  - jupyterlab
+  - numpy
+  - pandas
+  - rdkit
+  - cairosvg
+  - python-pptx
 
     # Testing
   - pytest
   - pytest-cov
   - codecov
   - pre-commit
+
 
     # Pip-only installs
   #- pip:
