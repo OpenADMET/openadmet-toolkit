@@ -6,6 +6,8 @@
 Welcome to openadmet_toolkit's documentation!
 =========================================================
 
+Check out the OpenADMET homepage: https://openadmet.org/
+
 .. grid:: 1 1 2 2
 
     .. grid-item-card:: Getting Started
