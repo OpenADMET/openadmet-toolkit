@@ -14,8 +14,8 @@ logger = logging.getLogger(__name__)
 
 
 try:
-    from IPython.core.display import SVG
-    from rdkit.Chem.Draw import IPythonConsole, rdMolDraw2D
+    from IPython.core.display import SVG # noqa: F401
+    from rdkit.Chem.Draw import IPythonConsole, rdMolDraw2D # noqa: F401
 except ImportError:
     IPythonConsole = None
 
