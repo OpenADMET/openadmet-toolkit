@@ -22,5 +22,5 @@ def test_make_pptx_from_molecule_data(molecule_dataframe, keep_images, tmp_path)
         smiles_col="SMILES1",
         legend_columns=["DATA1", "DATA2"],
         keep_images=keep_images,
-        image_dir = tmp_path / "images"
+        image_dir=tmp_path / "images",
     )
