@@ -67,7 +67,7 @@ def make_pptx_from_molecule_data(
     Parameters
     ----------
     dataframe : pandas.DataFrame
-        A dataframe with molecule data. The dataframe must have a column named 'smiles' with the SMILES strings of the molecules.
+        A dataframe with molecule data.
     output_file : str
         The name of the output pptx file.
     smiles_col : str, Optional, default: "SMILES"
