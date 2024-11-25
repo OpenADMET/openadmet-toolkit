@@ -21,8 +21,8 @@ jobs:
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
-        os: [macOS-latest, ubuntu-latest, windows-latest]
-        python-version: [3.9, "3.10", "3.11"]
+        os: [macOS-latest, ubuntu-latest]
+        python-version: ["3.10", "3.11"]
 
     steps:
       - uses: actions/checkout@v4
@@ -59,8 +59,7 @@ jobs:
           pytest -v --cov=openadmet_toolkit --cov-report=xml --color=yes openadmet_toolkit/tests/
 
       - name: CodeCov
-        uses: codecov/codecov-action@v1
+        uses: codecov/codecov-action@v4
         with:
-          file: ./coverage.xml
-          flags: unittests
+          token: ${{ secrets.CODECOV_TOKEN }}
           name: codecov-${{ matrix.os }}-py${{ matrix.python-version }}
