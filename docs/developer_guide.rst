@@ -1,4 +1,4 @@
 Developer Guide
 ===============
 
-This page details how to contribute to openadmet_toolkit. 
+This page details how to contribute to openadmet_toolkit.
