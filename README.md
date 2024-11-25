@@ -5,7 +5,7 @@ openadmet_toolkit
 [![codecov](https://codecov.io/gh/OpenADMET/openadmet_toolkit/branch/main/graph/badge.svg)](https://codecov.io/gh/OpenADMET/openadmet_toolkit/branch/main)
 
 
-A short description of the project (less than one line).
+Toolkit for large scale ADMET modelling
 
 ### Copyright
 
