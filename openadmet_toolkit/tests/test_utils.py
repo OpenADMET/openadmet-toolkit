@@ -14,10 +14,13 @@ def molecule_dataframe():
     return df
 
 
-def test_make_pptx_from_molecule_data(molecule_dataframe, tmp_path):
+@pytest.mark.parametrize("keep_images", [True, False])
+def test_make_pptx_from_molecule_data(molecule_dataframe, keep_images, tmp_path):
     make_pptx_from_molecule_data(
         molecule_dataframe,
         tmp_path / "test.pptx",
         smiles_col="SMILES1",
         legend_columns=["DATA1", "DATA2"],
+        keep_images=keep_images,
+        image_dir = tmp_path / "images"
     )
