@@ -14,11 +14,10 @@ logger = logging.getLogger(__name__)
 
 
 try:
-  from IPython.core.display import SVG
-
-  from rdkit.Chem.Draw import IPythonConsole, rdMolDraw2D
+    from IPython.core.display import SVG
+    from rdkit.Chem.Draw import IPythonConsole, rdMolDraw2D
 except ImportError:
-  IPythonConsole = None
+    IPythonConsole = None
 
 
 def rdkit_draw_in_ipython_mode() -> bool:
@@ -32,6 +31,7 @@ def rdkit_draw_in_ipython_mode() -> bool:
 
     """
     return IPythonConsole is not None
+
 
 def create_presentation(image_paths, output_file) -> None:
     # Create a presentation object
