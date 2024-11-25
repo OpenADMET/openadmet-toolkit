@@ -5,9 +5,9 @@ Unit and regression test for the openadmet_toolkit package.
 # Import package, test suite, and other packages as needed
 import sys
 
-import pytest
+import pytest  # noqa: F401
 
-import openadmet_toolkit
+import openadmet_toolkit  # noqa: F401
 
 
 def test_openadmet_toolkit_imported():
