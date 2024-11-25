@@ -13,7 +13,27 @@ from rdkit.Chem import Draw
 logger = logging.getLogger(__name__)
 
 
-def create_presentation(image_paths, output_file):
+try:
+  from IPython.core.display import SVG
+
+  from rdkit.Chem.Draw import IPythonConsole, rdMolDraw2D
+except ImportError:
+  IPythonConsole = None
+
+
+def rdkit_draw_in_ipython_mode() -> bool:
+    """
+    Check if RDKit is in IPython mode.
+
+    Returns
+    -------
+    bool
+        True if RDKit is in IPython mode, False otherwise.
+
+    """
+    return IPythonConsole is not None
+
+def create_presentation(image_paths, output_file) -> None:
     # Create a presentation object
     prs = Presentation()
 
@@ -40,7 +60,7 @@ def make_pptx_from_molecule_data(
     keep_images=False,
     image_dir: str | Path = "images",
     legend_columns=None,
-):
+) -> None:
     """
     This function takes a dataframe with molecule data and creates a pptx file with the molecules as images.
 
@@ -118,8 +138,12 @@ def make_pptx_from_molecule_data(
             legends=legends,
             subImgSize=(200, 200),
             useSVG=True,
+            returnPNG=True,
         )
-        svg = img.data
+        if rdkit_draw_in_ipython_mode():
+            svg = img.data
+        else:
+            svg = img
         fname_svg = str(img_path / f"mols_{i}.svg")
         with open(fname_svg, "w") as outf:
             outf.write(svg)
