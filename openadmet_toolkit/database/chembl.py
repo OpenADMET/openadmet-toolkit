@@ -125,9 +125,9 @@ class ChEMBLTargetCurator(BaseModel):
     def get_assays_for_target(self) -> pd.DataFrame:
         query = f"""
             drop table if exists temp_assay_data;
-            CREATE TEMPORARY TABLE temp_assay_data AS
+            create temporary table temp_assay_data as
             select assay_id,assays.chembl_id assay_chembl_id,description,tid,targets.chembl_id target_chembl_id,\
-                    count(distinct(molregno)) molcount,pref_name,assays.doc_id doc_id,docs.year doc_date,variant_id \
+                    count(distinct(molregno)) molcount,pref_name,assays.doc_id doc_id,docs.year doc_date,variant_id, assays.confidence_score \
                     from activities  \
                     join assays using(assay_id)  \
                     join docs on (assays.doc_id = docs.doc_id)  \
@@ -141,7 +141,7 @@ class ChEMBLTargetCurator(BaseModel):
                     and target_type = 'SINGLE PROTEIN' \
                     and target_chembl_id = '{self.chembl_target_id}' \
                     group by (assay_id,assays.chembl_id,description,tid,targets.chembl_id,pref_name,\
-                            assays.doc_id,docs.year,variant_id) \
+                            assays.doc_id,docs.year,variant_id, assays.confidence_score) \
                     order by molcount desc; 
             """
         
@@ -162,7 +162,16 @@ class ChEMBLTargetCurator(BaseModel):
             self._chembl_connector.sql(query)
         
         if self.only_high_confidence:
-            pass
+            query = """
+            alter table temp_assay_data rename to temp_assay_data1;
+            drop table if exists temp_assay_data;
+            create temporary table temp_assay_data as
+            select ta1.* \
+            from temp_assay_data1 ta1 join assays using(assay_id) \
+            where assays.confidence_score = 9;
+            drop table temp_assay_data1;
+            """
+            self._chembl_connector.sql(query)
 
         return self._chembl_connector.query("select * from temp_assay_data", return_as="df")
 
