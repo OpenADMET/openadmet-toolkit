@@ -76,7 +76,7 @@ class ChEMBLDatabaseConnector(BaseModel):
         return duckdb.connect(str(self.sqlite_path))
 
     def query(
-        self, sql: str, return_as="duckdb"
+        self, sql: str, return_as: str = "duckdb"
     ) -> Union[duckdb.DuckDBPyConnection, pd.DataFrame]:
         """Execute a SQL query on the ChEMBL database."""
         data = self.connection.query(sql)
@@ -107,7 +107,7 @@ class ChEMBLTargetCuratorBase(BaseModel):
 
     @abc.abstractmethod
     def get_activity_data(
-        self, return_as="df"
+        self, return_as:str="df"
     ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
         """Get the activity data for a given target using its ChEMBL ID."""
         pass
@@ -172,7 +172,7 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         return value
 
     def get_high_quality_assays_for_target(
-        self, return_as="df"
+        self, return_as: str="df"
     ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
         """
         Get the high quality assays for a given target using its ChEMBL ID.
@@ -256,7 +256,7 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         return self._chembl_connector.query(query, return_as=return_as)
 
     def get_activity_data(
-        self, return_as="df"
+        self, return_as:str="df"
     ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
         """
         Get the high quality activity data for a given target using its ChEMBL ID.
@@ -350,7 +350,7 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         return value
 
     def get_activity_data(
-        self, return_as="df"
+        self, return_as: str = "df"
     ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
         """
         Get all the activity data for a given target using its ChEMBL ID.
