@@ -187,21 +187,21 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
             drop table if exists temp_assay_data;
             create temporary table temp_assay_data as
             select assay_id,assays.chembl_id assay_chembl_id,description,tid,targets.chembl_id target_chembl_id,\
-                    count(distinct(molregno)) molcount,pref_name,assays.doc_id doc_id,docs.year doc_date,variant_id, assays.confidence_score, standard_type \
-                    from activities  \
-                    join assays using(assay_id)  \
-                    join docs on (assays.doc_id = docs.doc_id)  \
-                    join target_dictionary as targets using (tid) \
-                    where pchembl_value is not null   \
-                    and standard_type is not null \
-                    and standard_units = 'nM'  \
-                    and data_validity_comment is null  \
-                    and standard_relation = '=' \
-                    and target_type = 'SINGLE PROTEIN' \
-                    and target_chembl_id = '{self.chembl_target_id}' \
-                    group by (assay_id,assays.chembl_id,description,tid,targets.chembl_id,pref_name,\
-                            assays.doc_id,docs.year,variant_id, assays.confidence_score, standard_type) \
-                    order by molcount desc;
+            count(distinct(molregno)) molcount,pref_name,assays.doc_id doc_id,docs.year doc_date,variant_id, assays.confidence_score, standard_type \
+            from activities  \
+            join assays using(assay_id)  \
+            join docs on (assays.doc_id = docs.doc_id)  \
+            join target_dictionary as targets using (tid) \
+            where pchembl_value is not null   \
+            and standard_type is not null \
+            and standard_units = 'nM'  \
+            and data_validity_comment is null  \
+            and standard_relation = '=' \
+            and target_type = 'SINGLE PROTEIN' \
+            and target_chembl_id = '{self.chembl_target_id}' \
+            group by (assay_id,assays.chembl_id,description,tid,targets.chembl_id,pref_name,\
+            assays.doc_id,docs.year,variant_id, assays.confidence_score, standard_type) \
+            order by molcount desc;
             """
 
         self._chembl_connector.sql(query)
@@ -263,35 +263,35 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         """
         hq_assays = self.get_high_quality_assays_for_target(return_as="duckdb")
         # get all the activity data for the target
-        qtext = f"""
-        SELECT
-        activities.assay_id                  AS assay_id,
-        activities.doc_id                    AS doc_id,
-        activities.standard_value            AS standard_value,
-        molecule_hierarchy.parent_molregno   AS molregno,
-        compound_structures.canonical_smiles AS canonical_smiles,
-        target_dictionary.tid                AS tid,
-        target_dictionary.chembl_id          AS target_chembl_id,
-        pchembl_value                        AS pchembl_value
-        FROM activities
-        JOIN assays ON activities.assay_id = assays.assay_id
-        JOIN target_dictionary ON assays.tid = target_dictionary.tid
-        JOIN target_components ON target_dictionary.tid = target_components.tid
-        JOIN component_class ON target_components.component_id = component_class.component_id
-        JOIN molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
-        JOIN molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
-        JOIN compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
-        WHERE activities.standard_units = 'nM' AND
-            pchembl_value IS NOT NULL AND
-            activities.data_validity_comment IS NULL AND
-            activities.standard_relation = '=' AND
-            activities.potential_duplicate = 0 AND
-            assays.confidence_score >= 8 AND
-            target_dictionary.target_type = 'SINGLE PROTEIN' AND
-            target_chembl_id = '{self.chembl_target_id}'
-            """
+        query = f"""
+        select
+        activities.assay_id                  as assay_id,
+        activities.doc_id                    as doc_id,
+        activities.standard_value            as standard_value,
+        molecule_hierarchy.parent_molregno   as molregno,
+        compound_structures.canonical_smiles as canonical_smiles,
+        target_dictionary.tid                as tid,
+        target_dictionary.chembl_id          as target_chembl_id,
+        pchembl_value                        as pchembl_value
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join target_components ON target_dictionary.tid = target_components.tid
+        join component_class ON target_components.component_id = component_class.component_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where activities.standard_units = 'nM' and
+        pchembl_value is not null and
+        activities.data_validity_comment IS null and
+        activities.standard_relation = '=' and
+        activities.potential_duplicate = 0 and
+        assays.confidence_score >= 8 and
+        target_dictionary.target_type = 'SINGLE PROTEIN' and
+        target_chembl_id = '{self.chembl_target_id}'
+        """
 
-        all_data = self._chembl_connector.query(qtext, return_as="duckdb")
+        all_data = self._chembl_connector.query(query, return_as="duckdb")
 
         # find intersection of high quality assays and all data
         hq_data = hq_assays.join(all_data, "assay_id, tid, target_chembl_id, doc_id")
@@ -317,6 +317,7 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         # unnenest column hierarchy
         data.columns = ["_".join(col) for col in data.columns]
         data = data.reset_index()
+        data.sort_values("assay_id_count", ascending=False, inplace=True)
         return data
 
 
@@ -355,37 +356,36 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         """
         Get all the activity data for a given target using its ChEMBL ID.
         """
-        qtext = f"""
-
-        SELECT
-        activities.assay_id                  AS assay_id,
-        activities.doc_id                    AS doc_id,
-        activities.standard_value            AS standard_value,
-        molecule_hierarchy.parent_molregno   AS molregno,
-        compound_structures.canonical_smiles AS canonical_smiles,
-        target_dictionary.tid                AS tid,
-        target_dictionary.chembl_id          AS target_chembl_id,
-        pchembl_value                        AS pchembl_value
-        FROM activities
-        JOIN assays ON activities.assay_id = assays.assay_id
-        JOIN target_dictionary ON assays.tid = target_dictionary.tid
-        JOIN target_components ON target_dictionary.tid = target_components.tid
-        JOIN component_class ON target_components.component_id = component_class.component_id
-        JOIN molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
-        JOIN molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
-        JOIN compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
-        WHERE activities.standard_units = 'nM' AND
-            target_chembl_id = '{self.chembl_target_id}'
+        query = f"""
+        select
+        activities.assay_id                  as assay_id,
+        activities.doc_id                    as doc_id,
+        activities.standard_value            as standard_value,
+        molecule_hierarchy.parent_molregno   as molregno,
+        compound_structures.canonical_smiles as canonical_smiles,
+        target_dictionary.tid                as tid,
+        target_dictionary.chembl_id          as target_chembl_id,
+        pchembl_value                        as pchembl_value
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join target_components ON target_dictionary.tid = target_components.tid
+        join component_class ON target_components.component_id = component_class.component_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where activities.standard_units = 'nM' and
+        target_chembl_id = '{self.chembl_target_id}'
         """
 
         if self.require_pchembl:
-            qtext += "AND pchembl_value IS NOT NULL"
+            query += "and pchembl_value is not null"
 
         # if we specified a single standard type, we can filter it here as doesn't happen at the assay level
         if self.standard_type:
-            qtext += f"AND standard_type = '{self.standard_type}'"
+            query += f"and standard_type = '{self.standard_type}'"
 
-        all_data = self._chembl_connector.query(qtext, return_as="duckdb")
+        all_data = self._chembl_connector.query(query, return_as="duckdb")
 
         if return_as == "df":
             return all_data.to_df()
@@ -407,6 +407,8 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         # unnenest column hierarchy
         data.columns = ["_".join(col) for col in data.columns]
         data = data.reset_index()
+        data.sort_values("assay_id_count", ascending=False, inplace=True)
+
         return data
 
     def get_variant_ids_for_target(
