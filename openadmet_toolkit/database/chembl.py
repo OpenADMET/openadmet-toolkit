@@ -217,7 +217,6 @@ class ChEMBLTargetCurator(BaseModel):
                     and standard_relation = '=' \
                     and target_type = 'SINGLE PROTEIN' \
                     and target_chembl_id = '{self.chembl_target_id}' \
-                    and potential_duplicate = 0 \
                     group by (assay_id,assays.chembl_id,description,tid,targets.chembl_id,pref_name,\
                             assays.doc_id,docs.year,variant_id, assays.confidence_score, standard_type) \
                     order by molcount desc;
@@ -271,7 +270,7 @@ class ChEMBLTargetCurator(BaseModel):
 
 
 
-    def get_high_quality_activity_data(self):
+    def get_high_quality_activity_data(self, return_as="df") -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
         """
         Get the high quality activity data for a given target using its ChEMBL ID.
         """
@@ -298,8 +297,9 @@ class ChEMBLTargetCurator(BaseModel):
         WHERE activities.standard_units = 'nM' AND
             pchembl_value IS NOT NULL AND
             activities.data_validity_comment IS NULL AND
-            activities.standard_relation IN ('=', '<') AND
-            activities.potential_duplicate = 0 AND assays.confidence_score >= 8 AND
+            activities.standard_relation = '=' AND
+            activities.potential_duplicate = 0 AND
+            assays.confidence_score >= 8 AND
             target_dictionary.target_type = 'SINGLE PROTEIN' AND
             target_chembl_id = '{self.chembl_target_id}'
             """
@@ -308,7 +308,51 @@ class ChEMBLTargetCurator(BaseModel):
 
         # find intersection of high quality assays and all data
         hq_data = hq_assays.join(all_data, "assay_id, tid, target_chembl_id, doc_id")
-        return hq_data.to_df()
+        
+        if return_as == "df":
+            return hq_data.to_df()
+        else:
+            return hq_data
 
+    def get_high_quality_activity_data_by_compound(self) -> pd.DataFrame:
+        """
+        Get the high quality activity data for a given target using its ChEMBL ID, grouped by compound.
+        """
+        hq_data = self.get_high_quality_activity_data(return_as="df")
+        data =  hq_data.groupby(["molregno", "canonical_smiles"]).agg(
+            {
+                "assay_id": "count",
+                "standard_value": ["mean", "std"],
+                "pchembl_value": ["mean", "std"],
+            }
+        )
+        # unnenest column hierarchy
+        data.columns = ["_".join(col) for col in data.columns]
+        data = data.reset_index()
+        return data
 
-
+    def get_all_activity_data(self, return_as="df") -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
+        """
+        Get all the activity data for a given target using its ChEMBL ID.
+        """
+        qtext = f"""
+        SELECT
+        activities.assay_id                  AS assay_id,
+        activities.doc_id                    AS doc_id,
+        activities.standard_value            AS standard_value,
+        molecule_hierarchy.parent_molregno   AS molregno,
+        compound_structures.canonical_smiles AS canonical_smiles,
+        target_dictionary.tid                AS tid,
+        target_dictionary.chembl_id          AS target_chembl_id,
+        pchembl_value                        AS pchembl_value
+        FROM activities
+        JOIN assays ON activities
+        WHERE activities.standard_units = 'nM' AND
+            pchembl_value IS NOT NULL AND
+            activities.data_validity_comment IS NULL AND
+            activities.standard_relation = '=' AND
+            activities.potential_duplicate = 0 AND
+            assays.confidence_score >= 8 AND
+            target_dictionary.target_type = 'SINGLE PROTEIN' AND
+            target_chembl_id = '{self.chembl_target_id}'        
+        """
