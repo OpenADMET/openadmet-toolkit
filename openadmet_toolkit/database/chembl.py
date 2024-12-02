@@ -93,13 +93,23 @@ class ChEMBLDatabaseConnector(BaseModel):
 
 
 class ChEMBLTargetCurator(BaseModel):
+    """
+    Implement ChEMBL curation for a given protein target. 
+
+    Curation rules are taken from https://pubs.acs.org/doi/10.1021/acs.jcim.4c00049
+    with accompanying code here: https://github.com/rinikerlab/overlapping_assays/tree/main
+
+    Thank you @greglandrum!
+    """
+
     chembl_target_id: str = Field(..., description="ChEMBL target ID.")
-    standard_type: str = Field(..., description="Standard type of the ChEMBL data.")
-    min_assay_size: int = Field(20, description="Minimum assay size to be considered.")
-    max_assay_size: int = Field(1000, description="Maximum assay size to be considered.")
+    standard_type: Optional[str] = Field(None, description="Select a single Standard type of the ChEMBL data (IC50, Ki, Kd, EC50).")
+    min_assay_size: int = Field(10, description="Minimum assay size to be considered.")
+    max_assay_size: int = Field(10000, description="Maximum assay size to be considered.")
     only_docs: bool = Field(True, description="Consider only assays with associated documents.")
     remove_mutants: bool = Field(True, description="Remove assays with mutant targets as best as possible.")
     only_high_confidence: bool = Field(True, description="Consider only high confidence assays >= 9")
+    extra_filter: Optional[str] = Field(None, description="Extra filters to apply to the query, single word OR matching against assay description.")
 
 
     chembl_version: int = Field(34, description="Version of the ChEMBL database.")
@@ -122,37 +132,114 @@ class ChEMBLTargetCurator(BaseModel):
 
     
 
-    def get_assays_for_target(self) -> pd.DataFrame:
+    # def get_min_curation_summary_for_target(self, require_pchembl=True, return_as="df") -> pd.DataFrame:
+        
+    #     if require_pchembl:
+    #         query = f"""
+    #         select count(distinct(assay_id)) as assay_count, tid, count(distinct(molregno)) as unique_mol_count, count(molregno) as total_mols_assayed, count(distinct(assays.doc_id)) as document_count, targets.chembl_id as target_chembl_id \
+    #         from activities \
+    #         join assays using(assay_id)  \
+    #         join docs on (assays.doc_id = docs.doc_id)  \
+    #         join target_dictionary as targets using (tid) \
+    #         where pchembl_value is not null   \
+    #         and target_type = 'SINGLE PROTEIN' \
+    #         and target_chembl_id = '{self.chembl_target_id}' \
+    #         group by (tid, target_chembl_id) \
+    #         """
+    #     else:
+
+    #         query = f"""
+    #         select count(distinct(assay_id)) as assay_count, tid, count(distinct(molregno)) as molcount, count(molregno) as mols_assayed, count(distinct(assays.doc_id)) as doc_count, targets.chembl_id as target_chembl_id \
+    #         from activities \
+    #         join assays using(assay_id)  \
+    #         join docs on (assays.doc_id = docs.doc_id)  \
+    #         join target_dictionary as targets using (tid) \
+    #         where target_type = 'SINGLE PROTEIN' \
+    #         and target_chembl_id = '{self.chembl_target_id}' \
+    #         group by (tid, target_chembl_id) \
+    #         """
+    #     return self._chembl_connector.query(query, return_as=return_as)
+
+        
+    def get_all_variant_ids_for_target(self, return_as: str="df") -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
+        """
+        Get all the variant IDs for a given target using its ChEMBL ID
+        Only target_type = 'SINGLE PROTEIN' curation is applied.
+
+        Parameters
+        ----------
+        return_as: str
+            Return the data as a DataFrame or a DuckDB relation.
+        
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the variant IDs for the target
+
+        """
+        query = f"""
+        select distinct(variant_id), tid, description,  targets.chembl_id as target_chembl_id, assay_id, assays.chembl_id assay_chembl_id \
+        from activities \
+        join assays using(assay_id)  \
+        join docs on (assays.doc_id = docs.doc_id)  \
+        join target_dictionary as targets using (tid) \
+        where target_type = 'SINGLE PROTEIN' \
+        and target_chembl_id = '{self.chembl_target_id}' \
+        and variant_id is not null
+        group by (variant_id, tid, description, target_chembl_id, assay_id, assay_chembl_id) \
+        """
+        return self._chembl_connector.query(query, return_as=return_as)
+
+
+    def get_high_quality_assays_for_target(self, return_as="df") -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
+        """
+        Get the high quality assays for a given target using its ChEMBL ID.
+
+        Parameters
+        ----------
+        return_as: str
+            Return the data as a DataFrame or a DuckDB relation.
+        """
+        # first we get the assays for the target using a resonable level of curation.
         query = f"""
             drop table if exists temp_assay_data;
             create temporary table temp_assay_data as
             select assay_id,assays.chembl_id assay_chembl_id,description,tid,targets.chembl_id target_chembl_id,\
-                    count(distinct(molregno)) molcount,pref_name,assays.doc_id doc_id,docs.year doc_date,variant_id, assays.confidence_score \
+                    count(distinct(molregno)) molcount,pref_name,assays.doc_id doc_id,docs.year doc_date,variant_id, assays.confidence_score, standard_type \
                     from activities  \
                     join assays using(assay_id)  \
                     join docs on (assays.doc_id = docs.doc_id)  \
                     join target_dictionary as targets using (tid) \
-
                     where pchembl_value is not null   \
-                    and standard_type='{self.standard_type}' \
+                    and standard_type is not null \
                     and standard_units = 'nM'  \
                     and data_validity_comment is null  \
                     and standard_relation = '=' \
                     and target_type = 'SINGLE PROTEIN' \
                     and target_chembl_id = '{self.chembl_target_id}' \
                     group by (assay_id,assays.chembl_id,description,tid,targets.chembl_id,pref_name,\
-                            assays.doc_id,docs.year,variant_id, assays.confidence_score) \
-                    order by molcount desc; 
+                            assays.doc_id,docs.year,variant_id, assays.confidence_score, standard_type) \
+                    order by molcount desc;
             """
         
         self._chembl_connector.sql(query)
+
+
+        # if we want a single standard type, we can filter it here
+        if self.standard_type:
+            query = f"""
+            delete from temp_assay_data where standard_type != '{self.standard_type}';
+            """
+            self._chembl_connector.sql(query)
         
+        # remove assays without documents
         if self.only_docs:
             query = """ 
-            delete FROM temp_assay_data where doc_date is null;
+            delete from temp_assay_data where doc_date is null;
             """
             self._chembl_connector.sql(query)
 
+        # remove mutants
         if self.remove_mutants:
             query = """
                     delete from temp_assay_data where variant_id is not null or lower(description) like '%mutant%' \
@@ -161,17 +248,57 @@ class ChEMBLTargetCurator(BaseModel):
 
             self._chembl_connector.sql(query)
         
+        # remove low confidence assays
         if self.only_high_confidence:
             query = """
-            alter table temp_assay_data rename to temp_assay_data1;
-            drop table if exists temp_assay_data;
-            create temporary table temp_assay_data as
-            select ta1.* \
-            from temp_assay_data1 ta1 join assays using(assay_id) \
-            where assays.confidence_score = 9;
-            drop table temp_assay_data1;
+            delete from temp_assay_data where confidence_score < 9;
             """
             self._chembl_connector.sql(query)
 
-        return self._chembl_connector.query("select * from temp_assay_data", return_as="df")
+        # apply extra filter if provided
+        if self.extra_filter:
+            query = f"""
+            delete from temp_assay_data where lower(description) not like '%{self.extra_filter}%';
+            """
+            self._chembl_connector.sql(query)
+
+        # okay now find goldilocks zone assays between min and max assay size
+        query = f"""
+        select * from temp_assay_data where molcount >= {self.min_assay_size} and molcount <= {self.max_assay_size};
+        """
+        return self._chembl_connector.query(query, return_as=return_as)
+
+
+
+    def get_high_quality_activity_data(self):
+        """
+        Get the high quality activity data for a given target using its ChEMBL ID.
+        """
+        hq_assays = self.get_high_quality_assays_for_target(return_as="duckdb")
+        # get all the activity data for the target
+        query = f"""select  any_value(assay_id), assays.chembl_id assay_chembl_id,description,tid,targets.chembl_id target_chembl_id,\
+                    assays.doc_id doc_id,docs.year doc_date,variant_id, assays.confidence_score, standard_type, compound_structures.canonical_smiles canonical_smiles, \
+                    from activities  \
+                    join assays using(assay_id)  \
+                    join docs on (assays.doc_id = docs.doc_id)  \
+                    join target_dictionary as targets using (tid) \
+                    join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+                    join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+                    join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+
+                    where pchembl_value is not null   \
+                    and standard_type is not null \
+                    and standard_units = 'nM'  \
+                    and data_validity_comment is null  \
+                    and standard_relation = '=' \
+                    and target_type = 'SINGLE PROTEIN' \
+                    and target_chembl_id = '{self.chembl_target_id}' \
+        """
+        all_data = self._chembl_connector.query(query, return_as="duckdb")
+
+        # find intersection of high quality assays and all data
+        hq_data = hq_assays.join(all_data, "assay_id")
+        return hq_data
+
+
 
