@@ -1,6 +1,6 @@
 import abc
 from pathlib import Path
-from typing import Optional, Tuple, Union
+from typing import Optional, Union
 
 import chembl_downloader
 import duckdb
@@ -48,7 +48,7 @@ class ChEMBLDatabaseConnector(BaseModel):
         ChEMBLDatabaseConnector
             Instance of the ChEMBLDatabaseConnector class.
         """
-        # cls.check_chembl_version(version)
+        # cls.check_chembl_version(version)  # sometimes flaky if chembl webservice is slow
         path = chembl_downloader.download_extract_sqlite(version=str(version))
         return cls(version=version, sqlite_path=path)
 
@@ -187,7 +187,8 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
             drop table if exists temp_assay_data;
             create temporary table temp_assay_data as
             select assay_id,assays.chembl_id assay_chembl_id,description,tid,targets.chembl_id target_chembl_id,\
-            count(distinct(molregno)) molcount,pref_name,assays.doc_id doc_id,docs.year doc_date,variant_id, assays.confidence_score, standard_type \
+            count(distinct(molregno)) molcount,pref_name,assays.doc_id doc_id,docs.year doc_date,variant_id, \
+            assays.confidence_score, standard_type \
             from activities  \
             join assays using(assay_id)  \
             join docs on (assays.doc_id = docs.doc_id)  \
@@ -430,7 +431,8 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
 
         """
         query = f"""
-        select distinct(variant_id), tid, description,  targets.chembl_id as target_chembl_id, assay_id, assays.chembl_id assay_chembl_id \
+        select distinct(variant_id), tid, description,  targets.chembl_id as target_chembl_id, \
+        assay_id, assays.chembl_id assay_chembl_id \
         from activities \
         join assays using(assay_id)  \
         join docs on (assays.doc_id = docs.doc_id)  \
