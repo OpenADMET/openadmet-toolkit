@@ -108,7 +108,7 @@ class ChEMBLTargetCuratorBase(BaseModel):
         pass
 
     @abc.abstractmethod
-    def get_activity_data_by_compound(self) -> pd.DataFrame:
+    def aggregate_activity_data_by_compound(self) -> pd.DataFrame:
         """Get the activity data for a given target using its ChEMBL ID, grouped by compound."""
         pass
 
@@ -359,7 +359,7 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         else:
             return all_data
 
-    def get_activity_data_by_compound(self) -> pd.DataFrame:
+    def aggregate_activity_data_by_compound(self) -> pd.DataFrame:
         """
         Get all the activity data for a given target using its ChEMBL ID, grouped by compound.
         """
