@@ -45,7 +45,7 @@ class ChEMBLDatabaseConnector(BaseModel):
         ChEMBLDatabaseConnector
             Instance of the ChEMBLDatabaseConnector class.
         """
-        cls.check_chembl_version(version)
+        # cls.check_chembl_version(version)
         path = chembl_downloader.download_extract_sqlite(version=str(version))
         return cls(version=version, sqlite_path=path)
     
@@ -130,8 +130,9 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
     only_high_confidence: bool = Field(True, description="Consider only high confidence assays >= 9")
     extra_filter: Optional[str] = Field(None, description="Extra filters to apply to the query, single word OR matching against assay description.")
     landrum_curation: bool = Field(True, description="Apply the maximum curation rules from the Landrum paper.")
-    landrum_activity_curation: bool = Field(True, description="curation of activity data according to Landrum rules.")
-
+    landrum_activity_curation: bool = Field(False, description="curation of activity data according to Landrum rules.")
+    landrum_no_duplicate_docs: bool = Field(False, description="Remove assays with duplicate documents.")
+    landrum_overlap_min: int = Field(0, description="Minimum overlap between assays to be considered.")
 
     @field_validator("standard_type")
     def check_in_allowed_standard_types(cls, value):
@@ -231,20 +232,37 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
 
         else:
             # copy temp data to goldilocks table
-            query = """
+            query = f"""
             drop table if exists goldilocks;
-            create temporary table goldilocks as select * from temp_assay_data;
+            create temporary table goldilocks as
+            select assay_id,tid,molregno,pchembl_value,temp_assay_data.doc_id, activities.standard_type,activity_id \
+            from activities \
+            join temp_assay_data using (assay_id) \
+            where pchembl_value is not null   \
+            and standard_units = 'nM'  \
+            and data_validity_comment is null  \
+            and standard_relation = '=' \
+            and molcount >= {self.min_assay_size} and molcount<={self.max_assay_size} \
+            and target_chembl_id = '{self.chembl_target_id}' \
             """
 
-        # apply the maximum curation rules from the Landrum paper
+
+            self._chembl_connector.sql(query)
+
+        query = """select * from goldilocks;"""
+        return self._chembl_connector.query(query, return_as=return_as)
+
+        # apply the maximum curation rules from the Landrum paper, below is copied pretty mucg verbatim from 
+        # https://github.com/rinikerlab/overlapping_assays/blob/main/ChEMBL32_OverlappingIC50s-paper.ipynb
 
         query = """
-        drop table if exists goldilocks_overlap;
+        drop table if exists goldilocks_ovl;
         """
         self._chembl_connector.sql(query)
 
         if self.landrum_activity_curation:
             query = """
+
             create temporary table goldilocks_ovl as
             select c1.tid,c1.assay_id aid1,c2.assay_id aid2,count(distinct c1.molregno) ovl,\
             c1.doc_id doc_id1, c2.doc_id doc_id2 \
@@ -267,11 +285,47 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
             """
             self._chembl_connector.sql(query)
 
-        if self.landrum_docs_only:
+        if self.landrum_no_duplicate_docs:
             query = """
             delete from goldilocks_ovl where doc_id1=doc_id2;
             """
             self._chembl_connector.sql(query)
+
+
+        query = """drop table if exists goldilocks_ovl2;"""
+        self._chembl_connector.sql(query)
+
+        # limit to n_overlap minimum
+        query = f"""
+        create temporary table goldilocks_ovl2 as
+        select ovl.*,count(distinct a1.molregno) a1cnt,count(distinct a2.molregno) a2cnt \
+        from goldilocks_ovl ovl \
+        join goldilocks a1 on (aid1=a1.assay_id) join goldilocks a2 on (aid2=a2.assay_id)  \
+        where ovl > {self.landrum_overlap_min} \
+        group by (ovl.tid,ovl.aid1,ovl.aid2,ovl.ovl,ovl.doc_id1,ovl.doc_id2);
+        """
+        self._chembl_connector.sql(query)
+
+        query = """ drop table if exists goldilocks_ovl3;"""
+        self._chembl_connector.sql(query)
+
+        query = """
+        create temporary table goldilocks_ovl3 as
+        select lu3.chembl_id target_chembl_id,lu1.chembl_id assay1_chembl_id,lu2.chembl_id assay2_chembl_id,\
+            ovl,a1cnt,a2cnt,aid1,aid2 \
+        from goldilocks_ovl2 \
+        join chembl_id_lookup lu1 on (aid1=lu1.entity_id and lu1.entity_type='ASSAY') \
+        join chembl_id_lookup lu2 on (aid2=lu2.entity_id and lu2.entity_type='ASSAY') \
+        join chembl_id_lookup lu3 on (tid=lu3.entity_id and lu3.entity_type='TARGET');
+        """
+        self._chembl_connector.sql(query)
+
+        query = """ select * from goldilocks_ovl3;"""
+        return self._chembl_connector.query(query, return_as=return_as)
+
+
+
+        
 
 
 
