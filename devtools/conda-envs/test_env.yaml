@@ -13,6 +13,10 @@ dependencies:
   - rdkit
   - cairosvg
   - python-pptx
+  - seaborn
+  - matplotlib
+  - pydantic
+  - duckdb
 
     # Testing
   - pytest
@@ -20,7 +24,6 @@ dependencies:
   - codecov
   - pre-commit
 
-
     # Pip-only installs
-  #- pip:
-  #  - codecov
+  - pip:
+    - chembl-downloader
