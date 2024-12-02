@@ -231,12 +231,6 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
 
 
 
-
-        
-
-
-
-
     def get_activity_data(self, return_as="df") -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
         """
         Get the high quality activity data for a given target using its ChEMBL ID.
@@ -281,13 +275,11 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         else:
             return hq_data
 
-    def get_activity_data_by_compound(self) -> pd.DataFrame:
+    def aggregate_activity_data_by_compound(self) -> pd.DataFrame:
         """
         Get the high quality activity data for a given target using its ChEMBL ID, grouped by compound.
         """
         hq_data = self.get_activity_data(return_as="df")
-
-        # group by compound and remove pchembl values that are exactly the same
 
         data =  hq_data.groupby(["molregno", "canonical_smiles"]).agg(
             {
@@ -300,7 +292,6 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         data.columns = ["_".join(col) for col in data.columns]
         data = data.reset_index()
         return data
-
 
 
 
