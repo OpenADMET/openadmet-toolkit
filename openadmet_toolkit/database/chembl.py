@@ -1,11 +1,11 @@
-import chembl_downloader
-from typing import Tuple, Optional, Union
+import abc
 from pathlib import Path
+from typing import Optional, Tuple, Union
+
+import chembl_downloader
 import duckdb
 import pandas as pd
-import abc
 from pydantic import BaseModel, Field, field_validator
-
 
 
 class ChEMBLDatabaseConnector(BaseModel):
@@ -17,17 +17,20 @@ class ChEMBLDatabaseConnector(BaseModel):
 
     You can also connect to a remote ChEMBL SQLite database by providing the URL to the database file.
     """
+
     version: int = Field(..., description="Version of the ChEMBL SQLite database.")
-    sqlite_path: Path = Field(..., description="Path to the ChEMBL SQLite database file.")
+    sqlite_path: Path = Field(
+        ..., description="Path to the ChEMBL SQLite database file."
+    )
     _connection: Optional[duckdb.DuckDBPyConnection] = None
-
-
 
     @staticmethod
     def check_chembl_version(version: int) -> None:
         """Check if the ChEMBL version is valid."""
         if str(version) not in chembl_downloader.versions():
-            raise ValueError(f"Invalid ChEMBL version: {version}. Available versions: {chembl_downloader.versions()}")
+            raise ValueError(
+                f"Invalid ChEMBL version: {version}. Available versions: {chembl_downloader.versions()}"
+            )
 
     @classmethod
     def create_chembl_database(cls, version: int) -> "ChEMBLDatabaseConnector":
@@ -48,18 +51,17 @@ class ChEMBLDatabaseConnector(BaseModel):
         # cls.check_chembl_version(version)
         path = chembl_downloader.download_extract_sqlite(version=str(version))
         return cls(version=version, sqlite_path=path)
-    
+
     def _prep_duckdb(self) -> None:
         """
         Prepare the DuckDB connection by installing and loading the required extensions.
-        Then let connection lapse, with 
+        Then let connection lapse, with
         """
         con = duckdb.connect()
         con.install_extension("httpfs")
         con.load_extension("httpfs")
         con.install_extension("sqlite")
         con.load_extension("sqlite")
-
 
     @property
     def connection(self) -> duckdb.DuckDBPyConnection:
@@ -68,42 +70,45 @@ class ChEMBLDatabaseConnector(BaseModel):
             self._connection = self._connect()
         return self._connection
 
-    
     def _connect(self) -> duckdb.DuckDBPyConnection:
         """Connect to the ChEMBL SQLite database."""
         self._prep_duckdb()
         return duckdb.connect(str(self.sqlite_path))
-    
 
-    def query(self, sql: str, return_as="duckdb") -> Union[duckdb.DuckDBPyConnection, pd.DataFrame]:
+    def query(
+        self, sql: str, return_as="duckdb"
+    ) -> Union[duckdb.DuckDBPyConnection, pd.DataFrame]:
         """Execute a SQL query on the ChEMBL database."""
-        data =  self.connection.query(sql)
+        data = self.connection.query(sql)
         if return_as == "duckdb":
             return data
         elif return_as == "df":
             return data.to_df()
         else:
-            raise ValueError(f"Invalid return_as value: {return_as}. Use 'duckdb' or 'df'.")
-
+            raise ValueError(
+                f"Invalid return_as value: {return_as}. Use 'duckdb' or 'df'."
+            )
 
     def sql(self, sql: str) -> None:
         """Execute a SQL command on the ChEMBL database."""
         self.connection.sql(sql)
 
-    
+
 class ChEMBLTargetCuratorBase(BaseModel):
     chembl_target_id: str = Field(..., description="ChEMBL target ID.")
     chembl_version: int = Field(34, description="Version of the ChEMBL database.")
     _chembl_connector: Optional[ChEMBLDatabaseConnector] = None
 
-
     def __init__(self, **data):
         super().__init__(**data)
-        self._chembl_connector = ChEMBLDatabaseConnector.create_chembl_database(version=self.chembl_version)
-
+        self._chembl_connector = ChEMBLDatabaseConnector.create_chembl_database(
+            version=self.chembl_version
+        )
 
     @abc.abstractmethod
-    def get_activity_data(self, return_as="df") -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
+    def get_activity_data(
+        self, return_as="df"
+    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
         """Get the activity data for a given target using its ChEMBL ID."""
         pass
 
@@ -112,9 +117,10 @@ class ChEMBLTargetCuratorBase(BaseModel):
         """Get the activity data for a given target using its ChEMBL ID, grouped by compound."""
         pass
 
+
 class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
     """
-    Implement ChEMBL curation for a given protein target. 
+    Implement ChEMBL curation for a given protein target.
 
     Curation rules are taken from https://pubs.acs.org/doi/10.1021/acs.jcim.4c00049
     with accompanying code here: https://github.com/rinikerlab/overlapping_assays/tree/main
@@ -122,30 +128,52 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
     Thank you @greglandrum!
     """
 
-    standard_type: Optional[str] = Field(None, description="Select a single Standard type of the ChEMBL data (IC50, Ki, Kd, EC50).")
+    standard_type: Optional[str] = Field(
+        None,
+        description="Select a single Standard type of the ChEMBL data (IC50, Ki, Kd, EC50).",
+    )
     min_assay_size: int = Field(10, description="Minimum assay size to be considered.")
-    max_assay_size: int = Field(10000, description="Maximum assay size to be considered.")
-    only_docs: bool = Field(True, description="Consider only assays with associated documents.")
-    remove_mutants: bool = Field(True, description="Remove assays with mutant targets as best as possible.")
-    only_high_confidence: bool = Field(True, description="Consider only high confidence assays >= 9")
-    extra_filter: Optional[str] = Field(None, description="Extra filters to apply to the query, single word OR matching against assay description.")
-    landrum_curation: bool = Field(True, description="Apply the maximum curation rules from the Landrum paper.")
-    landrum_activity_curation: bool = Field(False, description="curation of activity data according to Landrum rules.")
-    landrum_no_duplicate_docs: bool = Field(False, description="Remove assays with duplicate documents.")
-    landrum_overlap_min: int = Field(0, description="Minimum overlap between assays to be considered.")
+    max_assay_size: int = Field(
+        10000, description="Maximum assay size to be considered."
+    )
+    only_docs: bool = Field(
+        True, description="Consider only assays with associated documents."
+    )
+    remove_mutants: bool = Field(
+        True, description="Remove assays with mutant targets as best as possible."
+    )
+    only_high_confidence: bool = Field(
+        True, description="Consider only high confidence assays >= 9"
+    )
+    extra_filter: Optional[str] = Field(
+        None,
+        description="Extra filters to apply to the query, single word OR matching against assay description.",
+    )
+    landrum_curation: bool = Field(
+        True, description="Apply the maximum curation rules from the Landrum paper."
+    )
+    landrum_activity_curation: bool = Field(
+        False, description="curation of activity data according to Landrum rules."
+    )
+    landrum_no_duplicate_docs: bool = Field(
+        False, description="Remove assays with duplicate documents."
+    )
+    landrum_overlap_min: int = Field(
+        0, description="Minimum overlap between assays to be considered."
+    )
 
     @field_validator("standard_type")
     def check_in_allowed_standard_types(cls, value):
         allowed_standard_types = ["IC50", "Ki", "Kd", "EC50"]
         if value not in allowed_standard_types:
-            raise ValueError(f"Invalid standard type: {value}. Allowed values: {allowed_standard_types}")
+            raise ValueError(
+                f"Invalid standard type: {value}. Allowed values: {allowed_standard_types}"
+            )
         return value
 
-    
-
-
-
-    def get_high_quality_assays_for_target(self, return_as="df") -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
+    def get_high_quality_assays_for_target(
+        self, return_as="df"
+    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
         """
         Get the high quality assays for a given target using its ChEMBL ID.
 
@@ -175,9 +203,8 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
                             assays.doc_id,docs.year,variant_id, assays.confidence_score, standard_type) \
                     order by molcount desc;
             """
-        
-        self._chembl_connector.sql(query)
 
+        self._chembl_connector.sql(query)
 
         # if we want a single standard type, we can filter it here
         if self.standard_type:
@@ -185,10 +212,10 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
             delete from temp_assay_data where standard_type != '{self.standard_type}';
             """
             self._chembl_connector.sql(query)
-        
+
         # remove assays without documents
         if self.only_docs:
-            query = """ 
+            query = """
             delete from temp_assay_data where doc_date is null;
             """
             self._chembl_connector.sql(query)
@@ -201,7 +228,7 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
             """
 
             self._chembl_connector.sql(query)
-        
+
         # remove low confidence assays
         if self.only_high_confidence:
             query = """
@@ -222,16 +249,15 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         """
         self._chembl_connector.sql(query)
 
-
         # get the final data
         query = """
         select * from temp_assay_data;
         """
         return self._chembl_connector.query(query, return_as=return_as)
 
-
-
-    def get_activity_data(self, return_as="df") -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
+    def get_activity_data(
+        self, return_as="df"
+    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
         """
         Get the high quality activity data for a given target using its ChEMBL ID.
         """
@@ -269,7 +295,7 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
 
         # find intersection of high quality assays and all data
         hq_data = hq_assays.join(all_data, "assay_id, tid, target_chembl_id, doc_id")
-        
+
         if return_as == "df":
             return hq_data.to_df()
         else:
@@ -281,7 +307,7 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         """
         hq_data = self.get_activity_data(return_as="df")
 
-        data =  hq_data.groupby(["molregno", "canonical_smiles"]).agg(
+        data = hq_data.groupby(["molregno", "canonical_smiles"]).agg(
             {
                 "assay_id": "count",
                 "standard_value": ["mean", "std"],
@@ -294,7 +320,6 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         return data
 
 
-
 class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
     """
     Implement ChEMBL curation for a given protein target.
@@ -304,21 +329,29 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
 
 
     """
-    standard_type: Optional[str] = Field(None, description="Select a single Standard type of the ChEMBL data (IC50, Ki, Kd, EC50, Potency).")
-    extra_filter: Optional[str] = Field(None, description="Extra filters to apply to the query, single word OR matching against assay description.")
+
+    standard_type: Optional[str] = Field(
+        None,
+        description="Select a single Standard type of the ChEMBL data (IC50, Ki, Kd, EC50, Potency).",
+    )
+    extra_filter: Optional[str] = Field(
+        None,
+        description="Extra filters to apply to the query, single word OR matching against assay description.",
+    )
     require_pchembl: bool = Field(True, description="Require a pChEMBL value.")
-
-
 
     @field_validator("standard_type")
     def check_in_allowed_standard_types(cls, value):
         allowed_standard_types = ["IC50", "Ki", "Kd", "EC50"]
         if value not in allowed_standard_types:
-            raise ValueError(f"Invalid standard type: {value}. Allowed values: {allowed_standard_types}")
+            raise ValueError(
+                f"Invalid standard type: {value}. Allowed values: {allowed_standard_types}"
+            )
         return value
 
-
-    def get_activity_data(self, return_as="df") -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
+    def get_activity_data(
+        self, return_as="df"
+    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
         """
         Get all the activity data for a given target using its ChEMBL ID.
         """
@@ -342,7 +375,7 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         JOIN molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         JOIN compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         WHERE activities.standard_units = 'nM' AND
-            target_chembl_id = '{self.chembl_target_id}'        
+            target_chembl_id = '{self.chembl_target_id}'
         """
 
         if self.require_pchembl:
@@ -364,7 +397,7 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         Get all the activity data for a given target using its ChEMBL ID, grouped by compound.
         """
         all_data = self.get_activity_data(return_as="df")
-        data =  all_data.groupby(["molregno", "canonical_smiles"]).agg(
+        data = all_data.groupby(["molregno", "canonical_smiles"]).agg(
             {
                 "assay_id": "count",
                 "standard_value": ["mean", "std"],
@@ -376,8 +409,9 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         data = data.reset_index()
         return data
 
-
-    def get_variant_ids_for_target(self, return_as: str="df") -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
+    def get_variant_ids_for_target(
+        self, return_as: str = "df"
+    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
         """
         Get all the variant IDs for a given target using its ChEMBL ID
         Only target_type = 'SINGLE PROTEIN' curation is applied.
@@ -386,7 +420,7 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         ----------
         return_as: str
             Return the data as a DataFrame or a DuckDB relation.
-        
+
         Returns
         -------
         pd.DataFrame

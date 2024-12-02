@@ -27,4 +27,3 @@ dependencies:
     # Pip-only installs
   - pip:
     - chembl-downloader
-
