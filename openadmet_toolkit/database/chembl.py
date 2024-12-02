@@ -217,6 +217,7 @@ class ChEMBLTargetCurator(BaseModel):
                     and standard_relation = '=' \
                     and target_type = 'SINGLE PROTEIN' \
                     and target_chembl_id = '{self.chembl_target_id}' \
+                    and potential_duplicate = 0 \
                     group by (assay_id,assays.chembl_id,description,tid,targets.chembl_id,pref_name,\
                             assays.doc_id,docs.year,variant_id, assays.confidence_score, standard_type) \
                     order by molcount desc;
@@ -276,29 +277,38 @@ class ChEMBLTargetCurator(BaseModel):
         """
         hq_assays = self.get_high_quality_assays_for_target(return_as="duckdb")
         # get all the activity data for the target
-        query = f"""select  any_value(assay_id), assays.chembl_id assay_chembl_id,description,tid,targets.chembl_id target_chembl_id,\
-                    assays.doc_id doc_id,docs.year doc_date,variant_id, assays.confidence_score, standard_type, compound_structures.canonical_smiles canonical_smiles, \
-                    from activities  \
-                    join assays using(assay_id)  \
-                    join docs on (assays.doc_id = docs.doc_id)  \
-                    join target_dictionary as targets using (tid) \
-                    join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
-                    join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
-                    join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        qtext = f"""
+        SELECT
+        activities.assay_id                  AS assay_id,
+        activities.doc_id                    AS doc_id,
+        activities.standard_value            AS standard_value,
+        molecule_hierarchy.parent_molregno   AS molregno,
+        compound_structures.canonical_smiles AS canonical_smiles,
+        target_dictionary.tid                AS tid,
+        target_dictionary.chembl_id          AS target_chembl_id,
+        pchembl_value                        AS pchembl_value
+        FROM activities
+        JOIN assays ON activities.assay_id = assays.assay_id
+        JOIN target_dictionary ON assays.tid = target_dictionary.tid
+        JOIN target_components ON target_dictionary.tid = target_components.tid
+        JOIN component_class ON target_components.component_id = component_class.component_id
+        JOIN molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        JOIN molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        JOIN compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        WHERE activities.standard_units = 'nM' AND
+            pchembl_value IS NOT NULL AND
+            activities.data_validity_comment IS NULL AND
+            activities.standard_relation IN ('=', '<') AND
+            activities.potential_duplicate = 0 AND assays.confidence_score >= 8 AND
+            target_dictionary.target_type = 'SINGLE PROTEIN' AND
+            target_chembl_id = '{self.chembl_target_id}'
+            """
 
-                    where pchembl_value is not null   \
-                    and standard_type is not null \
-                    and standard_units = 'nM'  \
-                    and data_validity_comment is null  \
-                    and standard_relation = '=' \
-                    and target_type = 'SINGLE PROTEIN' \
-                    and target_chembl_id = '{self.chembl_target_id}' \
-        """
-        all_data = self._chembl_connector.query(query, return_as="duckdb")
+        all_data = self._chembl_connector.query(qtext, return_as="duckdb")
 
         # find intersection of high quality assays and all data
-        hq_data = hq_assays.join(all_data, "assay_id")
-        return hq_data
+        hq_data = hq_assays.join(all_data, "assay_id, tid, target_chembl_id, doc_id")
+        return hq_data.to_df()
 
 
 
