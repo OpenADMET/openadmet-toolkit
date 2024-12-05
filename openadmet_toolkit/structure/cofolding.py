@@ -49,7 +49,8 @@ class CoFoldingEngine(BaseModel):
 
 class Chai1CoFoldingEngine(CoFoldingEngine):
     """
-    CoFoldingEngine for Chai1 model, see https://github.com/chaidiscovery/chai-lab and paper here https://www.biorxiv.org/content/10.1101/2024.10.10.615955v1
+    CoFoldingEngine for Chai1 model, see https://github.com/chaidiscovery/chai-lab
+    and paper here https://www.biorxiv.org/content/10.1101/2024.10.10.615955v1
     """
 
     def inference(
