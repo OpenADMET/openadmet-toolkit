@@ -7,7 +7,7 @@ from chai_lab.chai1 import run_inference
 import os
 import tempfile
 from shutil import copyfile
-
+import gc
 
 
 
@@ -103,9 +103,14 @@ class Chai1CoFoldingEngine(CoFoldingEngine):
                 device=torch.device(self.device),
                 use_esm_embeddings=True,
             )
+            # clean out gpu_memory
+            torch.cuda.empty_cache()
+
             cif_paths = candidates.cif_paths
             scores = np.asarray([rd.aggregate_score for rd in candidates.ranking_data]).ravel()
             all_scores.append(scores)
+
+            del candidates
         
             new_cif_paths = []
             for j, cif_path in enumerate(cif_paths):
@@ -114,6 +119,9 @@ class Chai1CoFoldingEngine(CoFoldingEngine):
                 new_cif_paths.append(new_cif_path)
 
             all_paths.append(new_cif_paths)
+
+            gc.collect()
+
 
         return np.asarray(all_paths), np.asarray(all_scores)
 
