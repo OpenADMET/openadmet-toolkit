@@ -11,7 +11,7 @@ from shutil import copyfile
 
 
 
-def combine_seq_smiles(seq_string: str, smiles: str):
+def combine_seq_smiles_to_fasta(seq_string: str, smiles: str, protein_name: str="protein", ligand_name: str="ligand") -> str:
     """
     Takes a smiles string and a fasta string and combines them into a single string that chai1 model can use
     looking like 
@@ -26,8 +26,13 @@ def combine_seq_smiles(seq_string: str, smiles: str):
         Fasta string
     smiles : str
         Smiles string
+
+    Returns
+    -------
+    str
+        Combined fasta string
     """
-    return f">protein|name=protein\n{seq_string}\n>ligand|name=ligand\n{smiles}"
+    return f">protein|name={protein_name}\n{seq_string}\n>ligand|name={ligand_name}\n{smiles}"
 
 
 class CoFoldingEngine(BaseModel):
@@ -37,10 +42,8 @@ class CoFoldingEngine(BaseModel):
 
 class Chai1CoFoldingEngine(CoFoldingEngine):
     """
-    CoFoldingEngine for Chai1 model
+    CoFoldingEngine for Chai1 model, see https://github.com/chaidiscovery/chai-lab and paper here https://www.biorxiv.org/content/10.1101/2024.10.10.615955v1
     """
-
-    
 
     def inference(self, fastas: Union[str, list[str]], protein_names: Optional[Union[str, list[str]]]=None):
         """
