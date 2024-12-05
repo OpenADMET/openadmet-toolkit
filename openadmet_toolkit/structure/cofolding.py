@@ -16,7 +16,7 @@ class Chai1CoFoldingEngine(CoFoldingEngine):
 
     
 
-    def inference(self, fasta: str):
+    def inference(self, fasta: str, protein_name: Optional[str]=None):
         # write fasta to tempfile
         tmpdirname = Path(os.path.join(tempfile.mkdtemp(), 'tmp_fold'))
 
@@ -41,19 +41,19 @@ class Chai1CoFoldingEngine(CoFoldingEngine):
         cif_paths = candidates.cif_paths
         scores = [rd.aggregate_score for rd in candidates.ranking_data]
     
+
+        # make output_dir if not exists
+        self.output_dir.mkdir(parents=True, exist_ok=True)
+
         # copy to output_path
-        newpaths = []
+        new_cif_paths = []
         for cif_path in cif_paths:
             newpath = self.output_dir / cif_path.name
             copyfile(cif_path, newpath)
-            newpaths.append(newpath)
+            new_cif_paths.append(newpath)
 
 
-
-            
-        print("cif_paths", cif_paths)
-        print("scores", np.asarray(scores))
-
+        return new_cif_paths, np.asarray(scores).ravel()
 
 
 
