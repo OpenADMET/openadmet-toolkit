@@ -1,11 +1,18 @@
 from pydantic import BaseModel, Field
 from pathlib import Path
+from typing import Optional
 import numpy as np
 import torch
 from chai_lab.chai1 import run_inference
 import os
 import tempfile
 from shutil import copyfile
+
+
+
+
+
+
 
 class CoFoldingEngine(BaseModel):
     output_dir: Path = Field(..., description="Output directory to save the results")
