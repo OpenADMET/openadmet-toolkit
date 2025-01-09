@@ -12,13 +12,12 @@ from pydantic import BaseModel, Field
 
 
 def combine_seq_smiles_to_fasta(
-    seq_string: str,
-    smiles: str,
-    protein_name: str = "protein",
-    ligand_name: str = "ligand",
+    seqs: list,
+    names: list,
+    p_or_l: list,
 ) -> str:
     """
-    Takes a smiles string and a fasta string and combines them into a single string that chai1 model can use
+    Takes a list of smiles strings and a fasta strings, a list of protein or ligand names, and labels of "protein" or "ligand", and combines them into a single string that chai1 model can use
     looking like
 
     >protein|name=example-peptide
@@ -27,17 +26,22 @@ def combine_seq_smiles_to_fasta(
 
     Parameters
     ----------
-    fasta : str
-        Fasta string
-    smiles : str
-        Smiles string
+    seqs : str
+        Fasta string or Smiles string
+    names: str
+        Name of protein or ligand
+    p_or_l:
+        Either "Protein" or "Ligand"
 
     Returns
     -------
     str
         Combined fasta string
     """
-    return f">protein|name={protein_name}\n{seq_string}\n>ligand|name={ligand_name}\n{smiles}"
+    to_return = ''
+    for seq, name, pl in zip(seqs, names, p_or_l):
+        to_return += f">{pl}|name={name}\n{seq}\n"
+    return to_return
 
 
 class CoFoldingEngine(BaseModel):
