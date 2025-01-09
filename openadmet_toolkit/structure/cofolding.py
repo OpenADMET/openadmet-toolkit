@@ -38,7 +38,7 @@ def combine_seq_smiles_to_fasta(
     str
         Combined fasta string
     """
-    to_return = ''
+    to_return = ""
     for seq, name, pl in zip(seqs, names, p_or_l):
         to_return += f">{pl}|name={name}\n{seq}\n"
     return to_return
