@@ -58,6 +58,9 @@ class BuildingBlockCatalouge(BaseModel):
         df =  pd.read_csv(self.building_block_csv)
         if self.subselect_vendors is not None:
             df = df[df[self.vendor_column].isin(self.subselect_vendors)]
+
+        df["combined_id"] = df[self.vendor_column].astype(str) + "_" + df["compound_id"].astype(str)
+
         return df
 
 
@@ -118,15 +121,44 @@ class BuildingBlockLibrarySearch(BaseModel):
             else:
                 combined_mask = combined_mask & mask
             
-        df["vendor_synthesis"] = combined_mask
+        df[f"{self.reaction.reaction_name}_vendor_synthesis"] = combined_mask
 
         # ok now drop the rows that cannot be synthesized
-        df = df[df["vendor_synthesis"]]
+        df = df[df[f"{self.reaction.reaction_name}_vendor_synthesis"]]
 
-        # now search the library
+        # now search the library for the molecule entries for each building block
+
+        synth_data =  df.apply(lambda row: self.row_search_library(row, building_block_df, self.building_blocks.inchikey_column, self.reaction), axis=1)
 
 
-        return df
+    @staticmethod
+    def row_search_library(df, building_block_df, inchikey_column, reaction):
+        """
+        Search the library for the target compounds row by row
+        """
+        building_block_df_inchikeyed = building_block_df.set_index(inchikey_column)
+        if not df[f"{reaction.reaction_name}_vendor_synthesis"]:
+            return pd.NA
+        
+        
+        for i, product_name in enumerate(reaction.product_names):
+            inchikey = df[f"{reaction.reaction_name}_{product_name}_inchikey"]
+            data = building_block_df_inchikeyed.loc[inchikey]
+            # handle some funny cases
+            if isinstance(data, pd.Series):
+                ids = data["combined_id"]
+            else:
+                ids = data["combined_id"].unique()
+
+            if not isinstance(ids, str):
+                ids = ids.tolist()
+
+            print(ids)
+
+
+        return pd.NA
+
+
 
 
 
