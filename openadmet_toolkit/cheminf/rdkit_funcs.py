@@ -57,3 +57,31 @@ def smiles_to_inchikey(smiles: str, raise_error:bool=False) -> str:
             raise ValueError(f"Could not convert SMILES to InChIKey: {smiles}")
         else:
             return pd.NA
+        
+
+def run_reaction(smiles: str, reaction_smarts: str, return_as="smiles", raise_error:bool=False):
+    try:
+        mol = Chem.MolFromSmiles(smiles)
+        reaction = Chem.rdChemReactions.ReactionFromSmarts(reaction_smarts)
+        products = reaction.RunReactants((mol,))
+
+        # if len(products) == 0:
+        #     return pd.NA
+        
+        for product_set in products:
+            frags = []
+            for fragment in product_set:
+                frags.append(fragment)
+        
+            if return_as == "smiles":
+                return [Chem.MolToSmiles(frag) for frag in frags]
+            else:
+                return frags
+            
+        else:
+            return pd.NA
+    except Exception as e:
+        if raise_error:
+            raise ValueError(f"Could not run reaction: {reaction_smarts} on SMILES: {smiles} with error: {e}")
+        else:
+            return pd.NA
