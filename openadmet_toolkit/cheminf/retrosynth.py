@@ -20,8 +20,9 @@ class ReactionSMART(BaseModel):
 
 
 class BuildingBlockCatalouge(BaseModel):
-    building_block_csvs: list[Union[str,Path]] = Field(..., title="CSV files", description="The CSV files containing the building block information")
+    building_block_csv: Union[str,Path] = Field(..., title="CSV files", description="The CSV file containing the building block information")
     smiles_column: str = Field("SMILES", title="SMILES column", description="The name of the column containing the SMILES strings")
+    inchikey_column: str = Field("INCHIKEY", title="INCHIKEY column", description="The name of the column containing the INCHIKEY strings")
 
     @field_validator("building_block_csvs")
     def check_csvs(cls, values):
@@ -30,30 +31,27 @@ class BuildingBlockCatalouge(BaseModel):
                 raise ValueError(f"File {csv} does not exist")
         return values
     
-    @model_validator(mode='after')
-    def check_csv_columns(cls, values):
-        for csv in values.building_block_csvs:
+    @model_validator
+    def check_columns(cls, values):
+        for csv in values.building_block_csv:
             df = pd.read_csv(csv)
             if values.smiles_column not in df.columns:
-                raise ValueError(f"Column {values.smiles_column} not found in {csv}")
+                raise ValueError(f"Column {values.smiles_column} not in {csv}")
+            if values.inchikey_column not in df.columns:
+                raise ValueError(f"Column {values.inchikey_column} not in {csv}")
         return values
 
-
-    def load(self) -> pd.DataFrame:
-        dfs = []
-        for csv in self.building_block_csvs:
-            df = pd.read_csv(csv)
-            dfs.append(df)
-        return pd.concat(dfs)
     
 
 
-class CatalougeAnnotator(BaseModel):
-    reactions = list[ReactionSMART]
+    def load(self) -> pd.DataFrame:
+        return pd.read_csv(self.building_block_csv)
+
+    
 
 
-    def annotate(self, catalouge: BuildingBlockCatalouge) -> pd.DataFrame:
-        pass 
         
+        
+
 
 
