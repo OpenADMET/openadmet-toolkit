@@ -40,12 +40,14 @@ def combine_seq_smiles_to_fasta(
     """
 
     if not len(seqs) == len(names) == len(protein_or_ligand):
-        raise ValueError("seqs, names, and protein_or_ligand must all be the same length")
+        raise ValueError(
+            "seqs, names, and protein_or_ligand must all be the same length"
+        )
 
     if not all(protein_or_ligand) in ["protein", "ligand"]:
         raise ValueError("unexpected tag, must be one of 'protein', 'ligand'")
 
-    to_return = ''
+    to_return = ""
     for seq, name, pl in zip(seqs, names, protein_or_ligand):
         to_return += f">{pl}|name={name}\n{seq}\n"
     return to_return
