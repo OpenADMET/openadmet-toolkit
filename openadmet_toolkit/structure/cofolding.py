@@ -12,9 +12,9 @@ from pydantic import BaseModel, Field
 
 
 def combine_seq_smiles_to_fasta(
-    seqs: list,
-    names: list,
-    p_or_l: list,
+    seqs: list[str],
+    names: list[str],
+    protein_or_ligand: list[str],
 ) -> str:
     """
     Takes a list of smiles strings and a fasta strings, a list of protein or ligand names, and labels of "protein" or "ligand", and combines them into a single string that chai1 model can use
@@ -30,8 +30,8 @@ def combine_seq_smiles_to_fasta(
         Fasta string or Smiles string
     names: str
         Name of protein or ligand
-    p_or_l:
-        Either "Protein" or "Ligand"
+    protein_or_ligand:
+        Either "protein" or "ligand"
 
     Returns
     -------
@@ -39,7 +39,7 @@ def combine_seq_smiles_to_fasta(
         Combined fasta string
     """
     to_return = ''
-    for seq, name, pl in zip(seqs, names, p_or_l):
+    for seq, name, pl in zip(seqs, names, protein_or_ligand):
         to_return += f">{pl}|name={name}\n{seq}\n"
     return to_return
 
