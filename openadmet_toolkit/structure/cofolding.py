@@ -17,8 +17,9 @@ def combine_seq_smiles_to_fasta(
     protein_or_ligand: list[str],
 ) -> str:
     """
-    Takes a list of smiles strings and a fasta strings, a list of protein or ligand names, and labels of "protein" or "ligand"
-    and combines them into a single string that chai1 model can use, looking like
+    Takes a list of smiles strings and a fasta strings, a list of protein or ligand
+    names, and labels of "protein" or "ligand" and combines them into a single string
+    that chai1 model can use, looking like:
 
     >protein|name=example-peptide
     GAAL
