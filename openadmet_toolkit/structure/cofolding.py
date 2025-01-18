@@ -12,14 +12,14 @@ from pydantic import BaseModel, Field
 
 
 def combine_seq_smiles_to_fasta(
-    seq_string: str,
-    smiles: str,
-    protein_name: str = "protein",
-    ligand_name: str = "ligand",
+    seqs: list[str],
+    names: list[str],
+    protein_or_ligand: list[str],
 ) -> str:
     """
-    Takes a smiles string and a fasta string and combines them into a single string that chai1 model can use
-    looking like
+    Takes a list of smiles strings and a fasta strings, a list of protein or ligand
+    names, and labels of "protein" or "ligand" and combines them into a single string
+    that chai1 model can use, looking like:
 
     >protein|name=example-peptide
     GAAL
@@ -27,17 +27,31 @@ def combine_seq_smiles_to_fasta(
 
     Parameters
     ----------
-    fasta : str
-        Fasta string
-    smiles : str
-        Smiles string
+    seqs : list[str]
+        Fasta string or Smiles string
+    names: list[str]
+        Name of protein or ligand
+    protein_or_ligand: list[str]
+        Either "protein" or "ligand"
 
     Returns
     -------
     str
         Combined fasta string
     """
-    return f">protein|name={protein_name}\n{seq_string}\n>ligand|name={ligand_name}\n{smiles}"
+
+    if not len(seqs) == len(names) == len(protein_or_ligand):
+        raise ValueError(
+            "seqs, names, and protein_or_ligand must all be the same length"
+        )
+
+    if not all(protein_or_ligand) in ["protein", "ligand"]:
+        raise ValueError("unexpected tag, must be one of 'protein', 'ligand'")
+
+    to_return = ""
+    for seq, name, pl in zip(seqs, names, protein_or_ligand):
+        to_return += f">{pl}|name={name}\n{seq}\n"
+    return to_return
 
 
 class CoFoldingEngine(BaseModel):
