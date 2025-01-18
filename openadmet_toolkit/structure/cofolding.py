@@ -26,11 +26,11 @@ def combine_seq_smiles_to_fasta(
 
     Parameters
     ----------
-    seqs : str
+    seqs : list[str]
         Fasta string or Smiles string
-    names: str
+    names: list[str]
         Name of protein or ligand
-    protein_or_ligand:
+    protein_or_ligand: list[str]
         Either "protein" or "ligand"
 
     Returns
