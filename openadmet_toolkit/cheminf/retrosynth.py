@@ -3,6 +3,10 @@ from typing import Union, Iterable
 from typing_extensions import Self
 from pathlib import Path
 import pandas as pd
+from tqdm import tqdm
+
+tqdm.pandas()
+
 
 from openadmet_toolkit.cheminf.rdkit_funcs import run_reaction, smiles_to_inchikey
 
@@ -40,6 +44,7 @@ class BuildingBlockCatalouge(BaseModel):
     smiles_column: str = Field("SMILES", title="SMILES column", description="The name of the column containing the SMILES strings")
     inchikey_column: str = Field("INCHIKEY", title="INCHIKEY column", description="The name of the column containing the INCHIKEY strings")
     vendor_column: str = Field("VENDOR", title="Vendor column", description="The name of the column containing the vendor information")
+    compound_id_column: str = Field("COMPOUND_ID", title="Compound ID column", description="The name of the column containing the compound ID information")
     subselect_vendors: list[str] = Field(None, title="Vendor subselection", description="The list of vendors to subselect")
     
     @model_validator(mode='after')
@@ -51,15 +56,12 @@ class BuildingBlockCatalouge(BaseModel):
             raise ValueError(f"Column {self.inchikey_column} not found in {self.building_block_csv}")
         return self
 
-    
-
-
     def load(self) -> pd.DataFrame:
         df =  pd.read_csv(self.building_block_csv)
         if self.subselect_vendors is not None:
             df = df[df[self.vendor_column].isin(self.subselect_vendors)]
 
-        df["combined_id"] = df[self.vendor_column].astype(str) + "_" + df["compound_id"].astype(str)
+        df["combined_id"] = df[self.vendor_column].astype(str) + "_" + df[self.compound_id_column].astype(str)
 
         return df
 
@@ -81,12 +83,12 @@ class Retrosynth(BaseModel):
     def run(self, df: pd.DataFrame, smiles_column:str="SMILES") -> list[str]:
         if smiles_column not in df.columns:
             raise ValueError(f"Column {self.smiles_column} not found in dataframe")
-        df[f"{self.reaction.reaction_name}_products"] = df[smiles_column].apply(lambda x: run_reaction(x, self.reaction.reaction))
+        df[f"{self.reaction.reaction_name}_products"] = df[smiles_column].progress_apply(lambda x: run_reaction(x, self.reaction.reaction))
         # find the ones that are not NA and we will annotate them with the product names
         for i, product_name in enumerate(self.reaction.product_names):
-            df[f"{self.reaction.reaction_name}_{product_name}"] = df[f"{self.reaction.reaction_name}_products"].apply(lambda x: x[i] if x is not pd.NA else pd.NA)
+            df[f"{self.reaction.reaction_name}_{product_name}"] = df[f"{self.reaction.reaction_name}_products"].progress_apply(lambda x: x[i] if x is not pd.NA else pd.NA)
             # add inchikeys for the products also
-            df[f"{self.reaction.reaction_name}_{product_name}_inchikey"] = df[f"{self.reaction.reaction_name}_{product_name}"].apply(lambda x: smiles_to_inchikey(x) if x is not pd.NA else pd.NA)
+            df[f"{self.reaction.reaction_name}_{product_name}_inchikey"] = df[f"{self.reaction.reaction_name}_{product_name}"].progress_apply(lambda x: smiles_to_inchikey(x) if x is not pd.NA else pd.NA)
         
         return df
     
@@ -95,7 +97,7 @@ class BuildingBlockLibrarySearch(BaseModel):
     reaction: ReactionSMART
     building_blocks: BuildingBlockCatalouge
 
-    def run(self, df: pd.DataFrame, smiles_column:str="SMILES") -> list[str]:
+    def run(self, df: pd.DataFrame, smiles_column:str="SMILES", drop_non_synth: bool=True) -> list[str]:
         # create retrosynthesis object
         retrosynth = Retrosynth(reaction=self.reaction)
         # run the retrosynthesis
@@ -124,17 +126,33 @@ class BuildingBlockLibrarySearch(BaseModel):
         df[f"{self.reaction.reaction_name}_vendor_synthesis"] = combined_mask
 
         # ok now drop the rows that cannot be synthesized
-        df = df[df[f"{self.reaction.reaction_name}_vendor_synthesis"]]
+        if drop_non_synth:
+            df = df[df[f"{self.reaction.reaction_name}_vendor_synthesis"]]
 
         # now search the library for the molecule entries for each building block
 
-        synth_data =  df.apply(lambda row: self.row_search_library(row, building_block_df, self.building_blocks.inchikey_column, self.reaction), axis=1)
+        synth_data =  df.progress_apply(lambda row: self.row_search_library(row, building_block_df, self.building_blocks.inchikey_column, self.reaction), axis=1)
+
+        # now explode on the vendor ids
+
+        for i, product_name in enumerate(self.reaction.product_names):
+            synth_data = synth_data.explode(f"{self.reaction.reaction_name}_{product_name}_vendor_ids")
+
+        # re-split the combined_id column
+        for i, product_name in enumerate(self.reaction.product_names):
+            synth_data[f"{self.reaction.reaction_name}_{product_name}_vendor"] = synth_data[f"{self.reaction.reaction_name}_{product_name}_vendor_ids"].str.split("_").str[0]
+            synth_data[f"{self.reaction.reaction_name}_{product_name}_compound_id"] = synth_data[f"{self.reaction.reaction_name}_{product_name}_vendor_ids"].str.split("_").str[1]
+            # drop the vendor_ids columns
+            synth_data = synth_data.drop(columns=[f"{self.reaction.reaction_name}_{product_name}_vendor_ids"])
+
+        return synth_data
 
 
     @staticmethod
     def row_search_library(df, building_block_df, inchikey_column, reaction):
         """
         Search the library for the target compounds row by row
+        WARNING: This is a slow operation, we can do better than this.
         """
         building_block_df_inchikeyed = building_block_df.set_index(inchikey_column)
         if not df[f"{reaction.reaction_name}_vendor_synthesis"]:
@@ -153,33 +171,6 @@ class BuildingBlockLibrarySearch(BaseModel):
             if not isinstance(ids, str):
                 ids = ids.tolist()
 
-            print(ids)
+            df[f"{reaction.reaction_name}_{product_name}_vendor_ids"] = ids
 
-
-        return pd.NA
-
-
-
-
-
-
-
-        # now we will search for the building blocks in the library
-
-
-
-
-        
-
-
-
-
-
-
-
-
-
-        
-
-
-
+        return df
