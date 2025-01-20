@@ -7,7 +7,8 @@ from pydantic import BaseModel, Field, model_validator
 from tqdm import tqdm
 from typing_extensions import Self
 
-from openadmet_toolkit.cheminf.rdkit_funcs import run_reaction, smiles_to_inchikey
+from openadmet_toolkit.cheminf.rdkit_funcs import (run_reaction,
+                                                   smiles_to_inchikey)
 
 logger = logging.getLogger(__name__)
 tqdm.pandas()
