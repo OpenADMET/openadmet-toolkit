@@ -168,8 +168,9 @@ class BuildingBlockLibrarySearch(BaseModel):
         # load the building block library
         building_block_df = self.building_blocks.load()
 
-        # now we will search for the building blocks in the library, building up a mask for each product if its INCHEKEY is in the library INCHIKEY column
-        # we will then combine the masks to get a final mask for the library
+        # now we will search for the building blocks in the library, building
+        # up a mask for each product if its INCHEKEY is in the library INCHIKEY
+        # column we will then combine the masks to get a final mask for the library
 
         combined_mask = None
 
@@ -240,7 +241,11 @@ class BuildingBlockLibrarySearch(BaseModel):
         """
         building_block_df_inchikeyed = building_block_df.set_index(inchikey_column)
         if not df[f"{reaction.reaction_name}_vendor_synthesis"]:
-            df[f"{reaction.reaction_name}_{product_name}_vendor_ids"] = pd.NA
+            vendor_id_cols = [
+                f"{reaction.reaction_name}_{product_name}_vendor_ids"
+                for product_name in reaction.product_names
+            ]
+            df[vendor_id_cols] = pd.NA
 
         for i, product_name in enumerate(reaction.product_names):
             inchikey = df[f"{reaction.reaction_name}_{product_name}_inchikey"]
