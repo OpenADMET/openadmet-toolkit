@@ -1,21 +1,15 @@
 import logging
+import pandas as pd
+
 from pathlib import Path
 from typing import Union
-from collections.abc import Iterable
-
-import pandas as pd
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, Field, model_validator
 from tqdm import tqdm
 from typing_extensions import Self
+from openadmet_toolkit.cheminf.rdkit_funcs import run_reaction, smiles_to_inchikey
 
 logger = logging.getLogger(__name__)
-
-
 tqdm.pandas()
-
-
-from openadmet_toolkit.cheminf.rdkit_funcs import (run_reaction,
-                                                   smiles_to_inchikey)
 
 
 class ReactionSMART(BaseModel):
@@ -156,7 +150,6 @@ class BuildingBlockLibrarySearch(BaseModel):
         self,
         df: pd.DataFrame,
         smiles_column: str = "SMILES",
-        drop_non_synth: bool = True,
     ) -> list[str]:
         # create retrosynthesis object
         retrosynth = Retrosynth(reaction=self.reaction)

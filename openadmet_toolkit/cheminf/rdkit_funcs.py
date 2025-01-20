@@ -45,9 +45,9 @@ def standardize_smiles(smiles: str, raise_error: bool = False) -> str:
         taut_uncharged_parent_clean_mol = te.Canonicalize(uncharged_parent_clean_mol)
 
         return Chem.MolToSmiles(taut_uncharged_parent_clean_mol)
-    except:
+    except Exception as e:
         if raise_error:
-            raise ValueError(f"Could not standardize SMILES: {smiles}")
+            raise ValueError(f"Could not standardize SMILES: {smiles} with error: {e}")
         else:
             return pd.NA
 
@@ -56,9 +56,9 @@ def smiles_to_inchikey(smiles: str, raise_error: bool = False) -> str:
     try:
         mol = Chem.MolFromSmiles(smiles)
         return Chem.MolToInchiKey(mol)
-    except:
+    except Exception as e:
         if raise_error:
-            raise ValueError(f"Could not convert SMILES to InChIKey: {smiles}")
+            raise ValueError(f"Could not convert SMILES to InChIKey: {smiles} with error: {e}")
         else:
             return pd.NA
 
@@ -86,7 +86,7 @@ def run_reaction(
 
         else:
             return pd.NA
-    except Exception as e:
+    except Exception as e: 
         if raise_error:
             raise ValueError(
                 f"Could not run reaction: {reaction_smarts} on SMILES: {smiles} with error: {e}"
