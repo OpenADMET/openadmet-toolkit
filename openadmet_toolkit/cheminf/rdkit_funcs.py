@@ -58,7 +58,9 @@ def smiles_to_inchikey(smiles: str, raise_error: bool = False) -> str:
         return Chem.MolToInchiKey(mol)
     except Exception as e:
         if raise_error:
-            raise ValueError(f"Could not convert SMILES to InChIKey: {smiles} with error: {e}")
+            raise ValueError(
+                f"Could not convert SMILES to InChIKey: {smiles} with error: {e}"
+            )
         else:
             return pd.NA
 
@@ -86,7 +88,7 @@ def run_reaction(
 
         else:
             return pd.NA
-    except Exception as e: 
+    except Exception as e:
         if raise_error:
             raise ValueError(
                 f"Could not run reaction: {reaction_smarts} on SMILES: {smiles} with error: {e}"
