@@ -4,8 +4,13 @@ from typing_extensions import Self
 from pathlib import Path
 import pandas as pd
 from tqdm import tqdm
+import logging 
+
+logger = logging.getLogger(__name__)
+
 
 tqdm.pandas()
+
 
 
 from openadmet_toolkit.cheminf.rdkit_funcs import run_reaction, smiles_to_inchikey
@@ -97,7 +102,7 @@ class BuildingBlockLibrarySearch(BaseModel):
     reaction: ReactionSMART
     building_blocks: BuildingBlockCatalouge
 
-    def run(self, df: pd.DataFrame, smiles_column:str="SMILES", drop_non_synth: bool=True) -> list[str]:
+    def run(self, df: pd.DataFrame, smiles_column:str="SMILES", drop_non_synth:bool=True) -> list[str]:
         # create retrosynthesis object
         retrosynth = Retrosynth(reaction=self.reaction)
         # run the retrosynthesis
@@ -125,12 +130,12 @@ class BuildingBlockLibrarySearch(BaseModel):
             
         df[f"{self.reaction.reaction_name}_vendor_synthesis"] = combined_mask
 
+        logger.info(f"number of compounds that can be synthesized: {df[f'{self.reaction.reaction_name}_vendor_synthesis'].sum()} out of {len(df)}")
+
         # ok now drop the rows that cannot be synthesized
-        if drop_non_synth:
-            df = df[df[f"{self.reaction.reaction_name}_vendor_synthesis"]]
+        df = df[df[f"{self.reaction.reaction_name}_vendor_synthesis"]]
 
         # now search the library for the molecule entries for each building block
-
         synth_data =  df.progress_apply(lambda row: self.row_search_library(row, building_block_df, self.building_blocks.inchikey_column, self.reaction), axis=1)
 
         # now explode on the vendor ids
@@ -156,8 +161,7 @@ class BuildingBlockLibrarySearch(BaseModel):
         """
         building_block_df_inchikeyed = building_block_df.set_index(inchikey_column)
         if not df[f"{reaction.reaction_name}_vendor_synthesis"]:
-            return pd.NA
-        
+            df[f"{reaction.reaction_name}_{product_name}_vendor_ids"] =  pd.NA
         
         for i, product_name in enumerate(reaction.product_names):
             inchikey = df[f"{reaction.reaction_name}_{product_name}_inchikey"]

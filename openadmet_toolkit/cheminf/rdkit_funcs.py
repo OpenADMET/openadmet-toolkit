@@ -1,4 +1,5 @@
 from rdkit import Chem
+from rdkit.Chem import AllChem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 import pandas as pd
 
@@ -62,7 +63,7 @@ def smiles_to_inchikey(smiles: str, raise_error:bool=False) -> str:
 def run_reaction(smiles: str, reaction_smarts: str, return_as="smiles", raise_error:bool=False):
     try:
         mol = Chem.MolFromSmiles(smiles)
-        reaction = Chem.rdChemReactions.ReactionFromSmarts(reaction_smarts)
+        reaction = AllChem.ReactionFromSmarts(reaction_smarts)
         products = reaction.RunReactants((mol,))
 
         # if len(products) == 0:
