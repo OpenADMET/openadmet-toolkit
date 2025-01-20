@@ -37,7 +37,7 @@ def test_smi_to_inchikey(smi):
     assert smiles_to_inchikey(smi)
 
 
-def test_run_reaction():
+def test_run_reaction(amide_smarts):
     # meloxicam
     res = run_reaction("CC1=CN=C(S1)NC(=O)C2=C(C3=CC=CC=C3S(=O)(=O)N2C)O", amide_smarts)
     assert len(res) == 2

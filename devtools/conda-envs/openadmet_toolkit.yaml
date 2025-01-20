@@ -10,7 +10,7 @@ dependencies:
   - jupyterlab
   - numpy
   - pandas
-  - rdkit
+  - rdkit >= 2024.09.4
   - cairosvg
   - python-pptx
   - seaborn
