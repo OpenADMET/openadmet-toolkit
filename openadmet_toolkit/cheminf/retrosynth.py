@@ -7,10 +7,8 @@ from pydantic import BaseModel, Field, model_validator
 from tqdm import tqdm
 from typing_extensions import Self
 
-from openadmet_toolkit.cheminf.rdkit_funcs import (
-    run_reaction,
-    smiles_to_inchikey,
-)
+from openadmet_toolkit.cheminf.rdkit_funcs import (run_reaction,
+                                                   smiles_to_inchikey)
 
 logger = logging.getLogger(__name__)
 tqdm.pandas()
@@ -79,9 +77,7 @@ class BuildingBlockCatalouge(BaseModel):
     compound_id_column: str = Field(
         "COMPOUND_ID",
         title="Compound ID column",
-        description=(
-            "The name of the column containing the compound ID information"
-        ),
+        description=("The name of the column containing the compound ID information"),
     )
     subselect_vendors: list[str] = Field(
         None,
@@ -133,9 +129,7 @@ class Retrosynth(BaseModel):
 
     def run(self, df: pd.DataFrame, smiles_column: str = "SMILES") -> list[str]:
         if smiles_column not in df.columns:
-            raise ValueError(
-                f"Column {self.smiles_column} not found in dataframe"
-            )
+            raise ValueError(f"Column {self.smiles_column} not found in dataframe")
         df[f"{self.reaction.reaction_name}_products"] = df[
             smiles_column
         ].progress_apply(lambda x: run_reaction(x, self.reaction.reaction))
@@ -181,9 +175,7 @@ class BuildingBlockLibrarySearch(BaseModel):
 
         for i, product_name in enumerate(self.reaction.product_names):
             # get the inchikeys for the products
-            inchikeys = df[
-                f"{self.reaction.reaction_name}_{product_name}_inchikey"
-            ]
+            inchikeys = df[f"{self.reaction.reaction_name}_{product_name}_inchikey"]
             mask = inchikeys.isin(
                 building_block_df[self.building_blocks.inchikey_column]
             )
@@ -223,29 +215,19 @@ class BuildingBlockLibrarySearch(BaseModel):
 
         # re-split the combined_id column
         for i, product_name in enumerate(self.reaction.product_names):
-            synth_data[
-                f"{self.reaction.reaction_name}_{product_name}_vendor"
-            ] = (
-                synth_data[
-                    f"{self.reaction.reaction_name}_{product_name}_vendor_ids"
-                ]
+            synth_data[f"{self.reaction.reaction_name}_{product_name}_vendor"] = (
+                synth_data[f"{self.reaction.reaction_name}_{product_name}_vendor_ids"]
                 .str.split("_")
                 .str[0]
             )
-            synth_data[
-                f"{self.reaction.reaction_name}_{product_name}_compound_id"
-            ] = (
-                synth_data[
-                    f"{self.reaction.reaction_name}_{product_name}_vendor_ids"
-                ]
+            synth_data[f"{self.reaction.reaction_name}_{product_name}_compound_id"] = (
+                synth_data[f"{self.reaction.reaction_name}_{product_name}_vendor_ids"]
                 .str.split("_")
                 .str[1]
             )
             # drop the vendor_ids columns
             synth_data = synth_data.drop(
-                columns=[
-                    f"{self.reaction.reaction_name}_{product_name}_vendor_ids"
-                ]
+                columns=[f"{self.reaction.reaction_name}_{product_name}_vendor_ids"]
             )
 
         return synth_data
@@ -256,9 +238,7 @@ class BuildingBlockLibrarySearch(BaseModel):
         Search the library for the target compounds row by row
         WARNING: This is a slow operation, we can do better than this.
         """
-        building_block_df_inchikeyed = building_block_df.set_index(
-            inchikey_column
-        )
+        building_block_df_inchikeyed = building_block_df.set_index(inchikey_column)
         if not df[f"{reaction.reaction_name}_vendor_synthesis"]:
             df[f"{reaction.reaction_name}_{product_name}_vendor_ids"] = pd.NA
 
