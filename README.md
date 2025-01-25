@@ -7,7 +7,7 @@ openadmet_toolkit
 [![Documentation Status](https://readthedocs.org/projects/openadmet-toolkit/badge/?version=latest)](https://openadmet-toolkit.readthedocs.io/en/latest/?badge=latest)
 
 
-Toolkit for large scale ADMET modelling, focused around data scraping, cleaning, screening and preparation for downstream machine learning workflows.
+[OpenADMET](https://openadmet.org/) toolkit for large scale ADMET modelling, focused around data scraping, cleaning, screening and preparation for downstream machine learning workflows.
 
 ### Copyright
 
