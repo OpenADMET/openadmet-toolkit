@@ -9,6 +9,10 @@ openadmet_toolkit
 
 [OpenADMET](https://openadmet.org/) toolkit for large scale ADMET modelling, focused around data scraping, cleaning, screening and preparation for downstream machine learning workflows.
 
+## Getting started
+
+See the documentation here: https://openadmet-toolkit.readthedocs.io/en/latest/
+
 ### Copyright
 
 Copyright (c) 2024, OpenADMET contributors.
