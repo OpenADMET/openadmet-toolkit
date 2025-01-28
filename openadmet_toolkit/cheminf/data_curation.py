@@ -21,6 +21,7 @@ class ChEMBLProcessing(BaseModel):
         super().__init__(**data)
         self.chemblData = self.read_csv(self.csv_path)
         self.keep_cols = ["CANONICAL_SMILES", "INCHIKEY", "pChEMBL mean", "pChEMBL std", "Molecule Name", "assay_count", "Action Type"]
+        self.standardize_smiles_and_convert()
 
     @classmethod
     def read_csv():
@@ -35,7 +36,7 @@ class ChEMBLProcessing(BaseModel):
         self.chemblData.dropna(subset="INCHIKEY", inplace=True)
 
     @classmethod
-    def select_quality_data(self, N: int = 10, pchembl_thresh: float = 5.0):
+    def select_quality_data_inhibition(self, N: int = 10, pchembl_thresh: float = 5.0, L: int = 1, save=True):
         better_assay = self.chemblData[
             (self.chemblData['Standard Type'] == 'IC50') |
             (self.chemblData['Standard Type'] == 'AC50') |
@@ -71,8 +72,33 @@ class ChEMBLProcessing(BaseModel):
         # get active compounds
         # defined as compounds above pChEMBL value specified (default 5.0)
         active = combined_4[combined_4["pChEMBL mean"] >= pchembl_thresh]
+        clean_deduped = self.clean_and_dedupe_actives(active, save, inhibition=True)
+        self.more_than_L_assays(clean_deduped, L)
 
-        
+    def select_quality_data_reactivity(self, save):
+        substrates = self.chemblData[self.chemblData["Action Type"] == "SUBSTRATE"]
+        self.clean_and_dedupe_activities(substrates, save, inhibition=False)
+
+    def more_than_L_assays(self, clean_deduped, L=1, save=True):
+        more_than_eq_L_assay = clean_deduped[clean_deduped["appears_in_N_ChEMBL_assays"] >= L]
+        more_than_eq_L_assay.to_csv("processed/chembl_active_selected.csv", index=False)
+        return(more_than_eq_L_assay.INCHIKEY.nunique())
+
+    def clean_and_dedupe_actives(self, active, save=True, inhibition=True):
+        clean_active = active[self.keep_cols]
+        clean_active.rename(columns={"assay_count":"appears_in_N_ChEMBL_assays", "Molecule Name": "common_name", "Action Type": "action_type"}, inplace=True)
+        clean_active_sorted = clean_active.sort_values(["common_name", "action_type"], ascending=[False, False]) # keep the ones with names if possible
+        clean_deduped = clean_active_sorted.drop_duplicates(subset="INCHIKEY", keep="first")
+        if inhibition:
+            clean_deduped = clean_deduped.sort_values("appears_in_N_ChEMBL_assays", ascending=False)
+            clean_deduped["action_type"] = clean_deduped["action_type"].apply(lambda x: x.lower() if isinstance(x, str) else x)
+        else:
+            clean_deduped["action_type"] = "substrate"
+        clean_deduped["dataset"] = "ChEMBL_curated"
+        clean_deduped["active"] = True
+        if save:    
+            clean_deduped.to_csv("processed/chembl_active.csv", index=False)
+        return(clean_deduped)
 
     def get_more_than_N_compounds(self, combined):
         more_than_N_compounds = combined[combined["molecule_count"] > N]
