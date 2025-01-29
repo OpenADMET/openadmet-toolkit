@@ -21,6 +21,7 @@ repos:
   hooks:
   - id: isort
     files: ^openadmet_toolkit
+    args: ["--profile", "black"]
 - repo: https://github.com/PyCQA/flake8
   rev: 7.1.1
   hooks:
