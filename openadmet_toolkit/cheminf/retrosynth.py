@@ -14,6 +14,7 @@ logger = logging.getLogger(__name__)
 tqdm.pandas()
 
 
+# holder for the reaction SMARTS
 class ReactionSMART(BaseModel):
     reaction: str = Field(
         ..., title="Reaction SMARTS", description="The reaction SMARTS string"

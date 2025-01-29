@@ -28,7 +28,7 @@ def amide_dataframe():
     )
     return data
 
-
+# simple tests
 def test_standardize_smiles(smi):
     assert standardize_smiles(smi)
 
