@@ -1,9 +1,11 @@
 import pandas as pd
 import pytest
 
-from openadmet_toolkit.cheminf.rdkit_funcs import (run_reaction,
-                                                   smiles_to_inchikey,
-                                                   standardize_smiles)
+from openadmet_toolkit.cheminf.rdkit_funcs import (
+    run_reaction,
+    smiles_to_inchikey,
+    standardize_smiles,
+)
 from openadmet_toolkit.cheminf.retrosynth import ReactionSMART, Retrosynth
 
 
