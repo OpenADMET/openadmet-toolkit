@@ -4,9 +4,6 @@ from rdkit.Chem import AllChem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.Chem.SaltRemover import SaltRemover
 
-
-
-
 def smiles_to_inchikey(smiles: str, raise_error: bool = False) -> str:
     try:
         mol = Chem.MolFromSmiles(smiles)
@@ -49,10 +46,11 @@ def run_reaction(
             return pd.NA
 
 
-
-def canonical_smiles(smiles: str, raise_error: bool = False, remove_salt: bool=True) -> str:
+def canonical_smiles(
+    smiles: str, raise_error: bool = False, remove_salt: bool = True
+) -> str:
     """
-    Standardizes a SMILES string by removing salts, normalizing the molecule, 
+    Standardizes a SMILES string by removing salts, normalizing the molecule,
     finding its canonical tuatomer, and returning the kekulized canonical SMILES.
 
     Parameters
@@ -63,7 +61,7 @@ def canonical_smiles(smiles: str, raise_error: bool = False, remove_salt: bool=T
         Raise an error if the SMILES string cannot be standardized, by default False
     remove_salt : bool, optional
         Remove salts from the molecule, by default True
-    
+
     Returns
     -------
     str
@@ -99,7 +97,9 @@ def canonical_smiles(smiles: str, raise_error: bool = False, remove_salt: bool=T
         # The molecule object must be converted to SMILES and back, to standardize dearomatization.
         smiles1_no_kekule = Chem.MolToSmiles(mol5_cantaut)
         mol6_no_kekule = Chem.MolFromSmiles(smiles1_no_kekule)
-        smiles2_oa_canonical = Chem.MolToSmiles(mol6_no_kekule, canonical=True, kekuleSmiles=True)
+        smiles2_oa_canonical = Chem.MolToSmiles(
+            mol6_no_kekule, canonical=True, kekuleSmiles=True
+        )
 
         return smiles2_oa_canonical
 
@@ -108,6 +108,7 @@ def canonical_smiles(smiles: str, raise_error: bool = False, remove_salt: bool=T
             raise ValueError(f"Could not standardize SMILES: {smiles} with error: {e}")
         else:
             return pd.NA
+
 
 def old_standardize_smiles(smiles: str, raise_error: bool = False) -> str:
     """
