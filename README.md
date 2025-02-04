@@ -13,6 +13,12 @@ openadmet_toolkit
 
 See the documentation here: https://openadmet-toolkit.readthedocs.io/en/latest/
 
+## List of available functionality
+
+- Chemoinformatics (canonicalisation, reaction analysis, retrosynth)
+- Database scraping (ChEMBL curation, PubChem Bioassay processing)
+- Structural analysis (Cofolding pose prediction)
+
 ### Copyright
 
 Copyright (c) 2024, OpenADMET contributors.
