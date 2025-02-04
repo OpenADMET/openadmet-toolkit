@@ -4,6 +4,7 @@ from rdkit.Chem import AllChem
 from rdkit.Chem.MolStandardize import rdMolStandardize
 from rdkit.Chem.SaltRemover import SaltRemover
 
+
 def smiles_to_inchikey(smiles: str, raise_error: bool = False) -> str:
     try:
         mol = Chem.MolFromSmiles(smiles)
