@@ -14,7 +14,6 @@ class CSVProcessing(BaseModel):
     """
     Class to handle processing data from a csv downloaded
     """
-
     csv_path: Path = Field(..., description="Path to the ChEMBL csv")
 
     @staticmethod
