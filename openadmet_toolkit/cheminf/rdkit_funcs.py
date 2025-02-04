@@ -2,7 +2,7 @@ import pandas as pd
 from rdkit import Chem
 from rdkit.Chem import AllChem
 from rdkit.Chem.MolStandardize import rdMolStandardize
-
+from rdkit.Chem.SaltRemover import SaltRemover
 
 
 
@@ -74,7 +74,7 @@ def canonical_smiles(smiles: str, raise_error: bool = False, remove_salt: bool=T
 
         # Step 2: Remove salts from the molecule.
         if remove_salt:
-            remover = Chem.SaltRemover.SaltRemover()
+            remover = SaltRemover()
             mol1 = remover.StripMol(mol0)
         else:
             mol1 = mol0
