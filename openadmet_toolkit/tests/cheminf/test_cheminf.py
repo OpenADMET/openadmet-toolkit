@@ -2,9 +2,10 @@ import pandas as pd
 import pytest
 
 from openadmet_toolkit.cheminf.rdkit_funcs import (
+    canonical_smiles,
+    old_standardize_smiles,
     run_reaction,
     smiles_to_inchikey,
-    standardize_smiles,
 )
 from openadmet_toolkit.cheminf.retrosynth import ReactionSMART, Retrosynth
 
@@ -32,8 +33,12 @@ def amide_dataframe():
 
 
 # simple tests
-def test_standardize_smiles(smi):
-    assert standardize_smiles(smi)
+def test_standardize_smiles_old(smi):
+    assert old_standardize_smiles(smi)
+
+
+def test_canonical_smiles(smi):
+    assert canonical_smiles(smi)
 
 
 def test_smi_to_inchikey(smi):
