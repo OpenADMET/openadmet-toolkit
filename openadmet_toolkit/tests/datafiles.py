@@ -1,5 +1,8 @@
 from importlib import resources
 
-_data_ref = resources.files("openadmet_toolkit/data")
+import openadmet_toolkit.tests.test_data  # noqa: F401
 
-example_vendor_library = (_data_ref / "truncated_vendor_library.csv").as_posix()
+_data_ref = resources.files("openadmet_toolkit.tests.test_data")  # noqa: F841
+
+
+example_file = (_data_ref / "example_file.txt").as_posix()
