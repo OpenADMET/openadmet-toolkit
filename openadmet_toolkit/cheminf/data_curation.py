@@ -1,18 +1,20 @@
-import pandas as pd
-from rdkit import Chem
-import seaborn as sns
-from tqdm import tqdm
-import numpy as np
-
-from rdkit.rdBase import BlockLogs
 from pathlib import Path
+
+import numpy as np
+import pandas as pd
+import seaborn as sns
 from pydantic import BaseModel, Field, field_validator
-from rdkit_funcs import standardize_smiles, smiles_to_inchikey
+from rdkit import Chem
+from rdkit.rdBase import BlockLogs
+from rdkit_funcs import smiles_to_inchikey, standardize_smiles
+from tqdm import tqdm
+
 
 class CSVProcessing(BaseModel):
     """
     Class to handle processing data from a csv downloaded
     """
+
     csv_path: Path = Field(..., description="Path to the ChEMBL csv")
 
     @staticmethod
@@ -33,6 +35,7 @@ class ChEMBLProcessing(CSVProcessing):
     from ChEMBL
 
     """
+
     def __init__(self, **data):
         super().__init__(**data)
         self.data = self.read_csv(self.csv_path, ";")
@@ -97,16 +100,31 @@ class ChEMBLProcessing(CSVProcessing):
             more_than_eq_L_assay = clean_deduped.copy()
         if save_as is not None:
             more_than_eq_L_assay.to_csv(save_as, index=False)
-        return(more_than_eq_L_assay.INCHIKEY.nunique())
+        return more_than_eq_L_assay.INCHIKEY.nunique()
 
     def clean_and_dedupe_actives(self, active, save_as=None, inhibition=True):
         clean_active = active[self.keep_cols]
-        clean_active.rename(columns={"assay_count":"appears_in_N_ChEMBL_assays", "Molecule Name": "common_name", "Action Type": "action_type"}, inplace=True)
-        clean_active_sorted = clean_active.sort_values(["common_name", "action_type"], ascending=[False, False]) # keep the ones with names if possible
-        clean_deduped = clean_active_sorted.drop_duplicates(subset="INCHIKEY", keep="first")
+        clean_active.rename(
+            columns={
+                "assay_count": "appears_in_N_ChEMBL_assays",
+                "Molecule Name": "common_name",
+                "Action Type": "action_type",
+            },
+            inplace=True,
+        )
+        clean_active_sorted = clean_active.sort_values(
+            ["common_name", "action_type"], ascending=[False, False]
+        )  # keep the ones with names if possible
+        clean_deduped = clean_active_sorted.drop_duplicates(
+            subset="INCHIKEY", keep="first"
+        )
         if inhibition:
-            clean_deduped = clean_deduped.sort_values("appears_in_N_ChEMBL_assays", ascending=False)
-            clean_deduped["action_type"] = clean_deduped["action_type"].apply(lambda x: x.lower() if isinstance(x, str) else x)
+            clean_deduped = clean_deduped.sort_values(
+                "appears_in_N_ChEMBL_assays", ascending=False
+            )
+            clean_deduped["action_type"] = clean_deduped["action_type"].apply(
+                lambda x: x.lower() if isinstance(x, str) else x
+            )
         else:
             clean_deduped["action_type"] = "substrate"
         clean_deduped["dataset"] = "ChEMBL_curated"
@@ -127,7 +145,9 @@ class ChEMBLProcessing(CSVProcessing):
         return(num_assays_per_compound_df.set_index("INCHIKEY"))
 
     def get_num_compounds_per_assay(self, better_units):
-        num_compounds_per_assay = better_units.groupby("Assay ChEMBL ID")["Molecule ChEMBL ID"].nunique()
+        num_compounds_per_assay = better_units.groupby("Assay ChEMBL ID")[
+            "Molecule ChEMBL ID"
+        ].nunique()
         num_compounds_per_assay_df = pd.DataFrame(num_compounds_per_assay)
         num_compounds_per_assay_df.rename(columns={"Molecule ChEMBL ID": "molecule_count"}, inplace=True)
         return(better_units.join(num_compounds_per_assay_df, on="Assay ChEMBL ID"))
@@ -142,6 +162,7 @@ class PubChemProcessing(CSVProcessing):
     from PubChem
 
     """
+
     def __init__(self, **data):
         super().__init__(**data)
         self.data = self.read_csv(self.csv_path)
@@ -159,7 +180,7 @@ class PubChemProcessing(CSVProcessing):
         for index, row in self.data.iterrows():
             if index == 0:
                 continue
-            elif Chem.MolFromSmiles(row['PUBCHEM_EXT_DATASOURCE_SMILES']) is not None:
+            elif Chem.MolFromSmiles(row["PUBCHEM_EXT_DATASOURCE_SMILES"]) is not None:
                 to_del += 1
             else:
                 break
