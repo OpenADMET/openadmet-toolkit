@@ -14,21 +14,18 @@ class CSVProcessing(BaseModel):
     Class to handle processing data from a csv downloaded
     """
     csv_path: Path = Field(..., description="Path to the ChEMBL csv")
-    
-    def __init__(self, **data):
-        super().__init__(**data)
 
-    @classmethod
+    @staticmethod
     def read_csv(csv_path, sep=','):
         return(pd.read_csv(csv_path, sep))
 
-    @classmethod
-    def standardize_smiles_and_convert(self):
+    @staticmethod
+    def standardize_smiles_and_convert(data):
         with BlockLogs():
-            self.chemblData["CANONICAL_SMILES"] = self.chemblData["Smiles"].progress_apply(lambda x: standardize_smiles(x))
+            data["CANONICAL_SMILES"] = data["Smiles"].progress_apply(lambda x: standardize_smiles(x))
         with BlockLogs():
-            self.chemblData["INCHIKEY"] = self.chemblData["CANONICAL_SMILES"].progress_apply(lambda x: smiles_to_inchikey(x))
-        self.chemblData.dropna(subset="INCHIKEY", inplace=True)
+            data["INCHIKEY"] = data["CANONICAL_SMILES"].progress_apply(lambda x: smiles_to_inchikey(x))
+        return(data.dropna(subset="INCHIKEY", inplace=True))
     
 class ChEMBLProcessing(CSVProcessing):
     """
@@ -38,63 +35,70 @@ class ChEMBLProcessing(CSVProcessing):
     """
     def __init__(self, **data):
         super().__init__(**data)
-        self.chemblData = self.read_csv(self.csv_path, ";")
+        self.data = self.read_csv(self.csv_path, ";")
         self.keep_cols = ["CANONICAL_SMILES", "INCHIKEY", "pChEMBL mean", "pChEMBL std", "Molecule Name", "assay_count", "Action Type"]
-        self.standardize_smiles_and_convert()
+        self.data = self.standardize_smiles_and_convert(self.data)
 
-    @classmethod
-    def select_quality_data_inhibition(self, N: int = 10, pchembl_thresh: float = 5.0, L: int = 1, save_as=None):
-        better_assay = self.chemblData[
-            (self.chemblData['Standard Type'] == 'IC50') |
-            (self.chemblData['Standard Type'] == 'AC50') |
-            (self.chemblData['Standard Type'] == 'pIC50') |
-            (self.chemblData['Standard Type'] == 'XC50') |
-            (self.chemblData['Standard Type'] == 'EC50') | 
-            (self.chemblData['Standard Type'] == 'Ki') |
-            (self.chemblData['Standard Type'] == 'Potency')
+    def select_quality_data_inhibition(self, min_compound_num=None, pchembl_thresh=None, min_assay_num=None, save_as=None):
+        better_assay = self.data[
+            (self.data['Standard Type'] == 'IC50') |
+            (self.data['Standard Type'] == 'AC50') |
+            (self.data['Standard Type'] == 'pIC50') |
+            (self.data['Standard Type'] == 'XC50') |
+            (self.data['Standard Type'] == 'EC50') | 
+            (self.data['Standard Type'] == 'Ki') |
+            (self.data['Standard Type'] == 'Potency')
         ]
         better_units = better_assay[better_assay['Standard Units'] == "nM"]
-        combined = self.get_num_compounds_per_assay(better_units)
+        combined_df = self.get_num_compounds_per_assay(better_units)
         
-        more_than_N_compounds = self.get_more_than_N_compounds(combined)
+        more_than_N_compounds = self.get_more_than_N_compounds(combined_df, min_compound_num)
         assays = more_than_N_compounds["Assay ChEMBL ID"].nunique()
-        num_assays_per_compound_df = self.get_num_assays_per_compound(more_than_N_compounds)
-        combined_2 = more_than_N_compounds.join(num_assays_per_compound_df, on="INCHIKEY")
-        combined_2.sort_values("assay_count", ascending=False, inplace=True)
-        combined_2["assay_count"] = combined_2["assay_count"].astype(int)
+        # on the following line, should more_than_N_compounds be assays?
+        num_assays_per_compound_df = self.get_num_assays_per_compound(assays)
+        combined_df = more_than_N_compounds.join(num_assays_per_compound_df, on="INCHIKEY")
+        combined_df.sort_values("assay_count", ascending=False, inplace=True)
+        combined_df["assay_count"] = combined_df["assay_count"].astype(int)
         
-        compound_grouped_mean = combined_2.groupby("INCHIKEY")["pChEMBL Value"].mean()
+        compound_grouped_mean = combined_df.groupby("INCHIKEY")["pChEMBL Value"].mean()
         compound_grouped_mean.reset_index()
 
         cgm = compound_grouped_mean.reset_index(name="pChEMBL mean")
         cgm = cgm.set_index("INCHIKEY")
-        combined_3 = combined_2.join(cgm, on="INCHIKEY")
+        combined_df = combined_df.join(cgm, on="INCHIKEY")
 
-        compound_grouped_std = combined_2.groupby("INCHIKEY")["pChEMBL Value"].std()
+        compound_grouped_std = combined_df.groupby("INCHIKEY")["pChEMBL Value"].std()
 
         cgstd = compound_grouped_std.reset_index(name="pChEMBL std")
         cgstd = cgstd.set_index("INCHIKEY")
-        combined_4 =  combined_3.join(cgstd, on="INCHIKEY")
+        combined_df =  combined_df.join(cgstd, on="INCHIKEY")
 
         # get active compounds
-        # defined as compounds above pChEMBL value specified (default 5.0)
-        active = combined_4[combined_4["pChEMBL mean"] >= pchembl_thresh]
+        # defined as compounds above pChEMBL value specified 
+        # (default 5.0 from https://greglandrum.github.io/rdkit-blog/posts/2023-06-12-overlapping-ic50-assays1.html)
+        if pchembl_thresh != None:
+            active = combined_df[combined_df["pChEMBL mean"] >= pchembl_thresh]
+        else:
+            active = combined_df.copy()
         clean_deduped = self.clean_and_dedupe_actives(active, save_as, inhibition=True)
-        return(self.more_than_L_assays(clean_deduped, L))
+        if min_assay_num != None:
+            return(self.more_than_L_assays(clean_deduped, min_assay_num))
+        else:
+            return(clean_deduped)
 
-    @classmethod
     def select_quality_data_reactivity(self, save_as):
-        substrates = self.chemblData[self.chemblData["Action Type"] == "SUBSTRATE"]
+        substrates = self.data[self.data["Action Type"] == "SUBSTRATE"]
         return(self.clean_and_dedupe_activities(substrates, save_as, inhibition=False))
 
-    @classmethod
-    def more_than_L_assays(self, clean_deduped, L=1, save_as=None):
-        more_than_eq_L_assay = clean_deduped[clean_deduped["appears_in_N_ChEMBL_assays"] >= L]
+    def more_than_L_assays(self, clean_deduped, min_assay_num, save_as=None):
+        if min_assay_num != None:
+            more_than_eq_L_assay = clean_deduped[clean_deduped["appears_in_N_ChEMBL_assays"] >= min_assay_num]
+        else:
+            more_than_eq_L_assay = clean_deduped.copy()
         if save_as is not None:
             more_than_eq_L_assay.to_csv(save_as, index=False)
         return(more_than_eq_L_assay.INCHIKEY.nunique())
 
-    @classmethod
     def clean_and_dedupe_actives(self, active, save_as=None, inhibition=True):
         clean_active = active[self.keep_cols]
         clean_active.rename(columns={"assay_count":"appears_in_N_ChEMBL_assays", "Molecule Name": "common_name", "Action Type": "action_type"}, inplace=True)
@@ -106,39 +110,31 @@ class ChEMBLProcessing(CSVProcessing):
         else:
             clean_deduped["action_type"] = "substrate"
         clean_deduped["dataset"] = "ChEMBL_curated"
-        clean_deduped["active"] = True
         if save_as is not None:    
             clean_deduped.to_csv(save_as, index=False)
         return(clean_deduped)
 
-    @classmethod
-    def get_more_than_N_compounds(self, combined):
-        more_than_N_compounds = combined[combined["molecule_count"] > N]
-        more_than_N_compounds.INCHIKEY = more_than_N_compounds.INCHIKEY.astype(str)
-        return(more_than_N_compounds["Assay ChEMBL ID"].nunique())
+    def get_more_than_N_compounds(self, combined, min_compound_num):
+        if min_compound_num != None:
+            more_than_N_compounds = combined[combined["molecule_count"] > min_compound_num]
+            more_than_N_compounds.INCHIKEY = more_than_N_compounds.INCHIKEY.astype(str)
+            return(more_than_N_compounds["Assay ChEMBL ID"].nunique())
+        else:
+            return(combined)
 
-    @classmethod
     def get_num_assays_per_compound(self, more_than_N_compounds):
         num_assays_per_compound_df = more_than_N_compounds.groupby(["INCHIKEY"])["Assay ChEMBL ID"].size().reset_index(name="assay_count")
         return(num_assays_per_compound_df.set_index("INCHIKEY"))
 
-    @classmethod
     def get_num_compounds_per_assay(self, better_units):
         num_compounds_per_assay = better_units.groupby("Assay ChEMBL ID")["Molecule ChEMBL ID"].nunique()
         num_compounds_per_assay_df = pd.DataFrame(num_compounds_per_assay)
         num_compounds_per_assay_df.rename(columns={"Molecule ChEMBL ID": "molecule_count"}, inplace=True)
         return(better_units.join(num_compounds_per_assay_df, on="Assay ChEMBL ID"))
 
-    @classmethod
-    def aggregate_activity(self, combined_2):
-        compound_grouped_mean = combined_2.groupby("INCHIKEY")["pChEMBL Value"].mean()
+    def aggregate_activity(self, combined_df):
+        compound_grouped_mean = combined_df.groupby("INCHIKEY")["pChEMBL Value"].mean()
         return(compound_grouped_mean.reset_index())
-
-    @classmethod
-    def get_num_assays_per_compound(self, more_than_N_compounds):
-        num_assays_per_compound_df = more_than_N_compounds.groupby(["INCHIKEY"])["Assay ChEMBL ID"].size().reset_index(name="assay_count")
-        return(num_assays_per_compound_df.set_index("INCHIKEY"))
-
 
 class PubChemProcessing(CSVProcessing):
     """
@@ -148,30 +144,29 @@ class PubChemProcessing(CSVProcessing):
     """
     def __init__(self, **data):
         super().__init__(**data)
-        self.pubChemData = self.read_csv(self.csv_path)
+        self.data = self.read_csv(self.csv_path)
         self.keep_cols = ["CANONICAL_SMILES", "INCHIKEY", "PUBCHEM_ACTIVITY_OUTCOME", "PUBCHEM_CID"]
         self.delete_metadata_rows()
-        self.pubChemData = self.pubChemData.dropna(subset="PUBCHEM_CID")
-        self.pubChemData["PUBCHEM_SID"] = self.pubChemData["PUBCHEM_SID"].astype(int)
-        self.pubChemData["PUBCHEM_CID"] = self.pubChemData["PUBCHEM_CID"].astype(int)
-        self.standardize_smiles_and_convert()   
-        self.pubChemData.dropna(subset="INCHIKEY")
+        self.data = self.data.dropna(subset="PUBCHEM_CID")
+        self.data["PUBCHEM_SID"] = self.data["PUBCHEM_SID"].astype(int)
+        self.data["PUBCHEM_CID"] = self.data["PUBCHEM_CID"].astype(int)
+        self.data = self.standardize_smiles_and_convert(self.data)   
+        self.data.dropna(subset="INCHIKEY")
 
     @classmethod
     def delete_metadata_rows(self):
         to_del = 0
-        for index, row in self.pubChemData.iterrows():
+        for index, row in self.data.iterrows():
             if index == 0:
                 continue
             elif Chem.MolFromSmiles(row['PUBCHEM_EXT_DATASOURCE_SMILES']) is not None:
                 to_del += 1
             else:
                 break
-        self.pubChemData = self.pubChemData.drop(labels=list(range(0, to_del)), axis=0).reset_index(drop=True)
+        self.data = self.data.drop(labels=list(range(0, to_del)), axis=0).reset_index(drop=True)
         
-    @classmethod
     def clean_data_inhibition(self, aid, data_type, save_as=None):
-        clean = self.pubChemData[self.keep_cols]
+        clean = self.data[self.keep_cols]
         clean["dataset"] = aid
         clean["data_type"] = data_type
         clean["active"] = clean["PUBCHEM_ACTIVITY_OUTCOME"] == "Active"
@@ -179,6 +174,3 @@ class PubChemProcessing(CSVProcessing):
         clean["action_type"] = "inhibitor"
         if save_as is not None:
             clean.to_csv(save_as, index=False)
-
-
-
