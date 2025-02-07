@@ -226,23 +226,32 @@ class PubChemProcessing(CSVProcessing):
             "CANONICAL_SMILES",
             "INCHIKEY",
             "PUBCHEM_ACTIVITY_OUTCOME",
-            "PUBCHEM_CID",        
+            "PUBCHEM_CID",
     ])
 
-    def process(self, aid):
+    def process(self, path, aid, data_type, save_as=None):
         if self.inhib:
-            data = self.read_csv(self.csv_path)
-            self.delete_metadata_rows(data)
+            data = self.read_csv(path)
+            data.rename(columns={"PUBCHEM_EXT_DATASOURCE_SMILES": "Smiles"}, inplace=True)
+            data = self.delete_metadata_rows(data)
             data = data.dropna(subset="PUBCHEM_CID")
             data["PUBCHEM_SID"] = data["PUBCHEM_SID"].astype(int)
             data["PUBCHEM_CID"] = data["PUBCHEM_CID"].astype(int)
             data = self.standardize_smiles_and_convert(data)
             data.dropna(subset="INCHIKEY")
-            clean = self.clean_data_inhibition()
-        elif self.react:
-            raise NotImplementedError("Reactivity processing not implemented for PubChem")
-        else:
-            raise ValueError("Must specify either inhib or react as True.")
+            data = data[self.keep_cols]
+            data["dataset"] = aid
+            data["data_type"] = data_type
+            data["active"] = data["PUBCHEM_ACTIVITY_OUTCOME"] == "Active"
+            if self.inhib:
+                data["action_type"] = "inhibition"
+            elif self.react:
+                data["action_type"] = "substrate"
+            else:
+                raise ValueError("Must specify either inhib or react as True.")
+            if save_as is not None:
+                data.to_csv(save_as, index=False)
+            return data
 
     @classmethod
     def delete_metadata_rows(self, data):
@@ -250,21 +259,11 @@ class PubChemProcessing(CSVProcessing):
         for index, row in data.iterrows():
             if index == 0:
                 continue
-            elif Chem.MolFromSmiles(row["PUBCHEM_EXT_DATASOURCE_SMILES"]) is not None:
+            elif Chem.MolFromSmiles(str(row["Smiles"])) is None:
                 to_del += 1
             else:
                 break
         data = data.drop(labels=list(range(0, to_del)), axis=0).reset_index(
             drop=True
         )
-
-    def clean_data_inhibition(self, data, aid, data_type, save_as=None):
-        clean = data[self.keep_cols]
-        clean["dataset"] = aid
-        clean["data_type"] = data_type
-        clean["active"] = clean["PUBCHEM_ACTIVITY_OUTCOME"] == "Active"
-        clean["common_name"] = pd.NA
-        clean["action_type"] = "inhibitor"
-        if save_as is not None:
-            clean.to_csv(save_as, index=False)
-        return clean
+        return data
