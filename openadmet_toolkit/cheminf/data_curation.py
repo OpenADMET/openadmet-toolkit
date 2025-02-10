@@ -12,14 +12,32 @@ from openadmet_toolkit.cheminf.rdkit_funcs import canonical_smiles, smiles_to_in
 class CSVProcessing(BaseModel):
     """
     Class to handle processing data from a csv downloaded
+
     """
 
     @staticmethod
     def read_csv(csv_path, sep=","):
+        """
+        Wrapper for inbuilt pandas read_csv()
+        """
         return pd.read_csv(csv_path, sep=sep)
 
     @staticmethod
     def standardize_smiles_and_convert(data):
+        """
+        Converts data to canonical smiles and determines inchikey
+
+        Parameters
+        ----------
+        data : DataFrame
+            Dataframe of csv of downloaded compound data
+
+        Returns
+        -------
+        data : DataFrame
+            Dataframe with smiles canonicalized and inchikey
+            column added
+        """
         data["CANONICAL_SMILES"] = data["Smiles"].apply(lambda x: canonical_smiles(x))
         data["INCHIKEY"] = data["CANONICAL_SMILES"].apply(
             lambda x: smiles_to_inchikey(x)
@@ -33,6 +51,23 @@ class ChEMBLProcessing(CSVProcessing):
     Class to handle processing data from a csv downloaded
     from ChEMBL
 
+    Fields
+    ------
+    inhib : bool
+        Indicates if data is for inhibition
+    react : bool
+        Indicates if data is for reactivity/substrate 
+    min_compound_num : int
+        Minimum number of compounds threshold (determined by molecule_count)
+    pchembl_thresh : float
+        Threshold pchembl value
+    min_assay_num : int
+        Minimum number of assays threshold (determined by assay_count)
+    save_as : str
+        Path/filename to save processed data csv
+    keep_cols_inhib : list[str]
+        List of ChEMBL columns to keep in processed data (default below)
+    
     """
 
     inhib: bool = Field(default=False)
@@ -64,6 +99,21 @@ class ChEMBLProcessing(CSVProcessing):
     )
 
     def process(self, path):
+        """
+        Process raw ChEMBL data to clean up row names, canonicalize smiles,
+        add inchikeys, threshold for better compounds, dedupilcate, and
+        save new data
+
+        Parameters
+        ----------
+        path : str
+            Path to ChEMBL csv to process
+
+        Returns
+        -------
+        df : DataFrame
+            Processed ChEMBL dataframe
+        """
         data = self.read_csv(path, ";")
         data = self.standardize_smiles_and_convert(data)
         if self.inhib:
@@ -255,31 +305,58 @@ class PubChemProcessing(CSVProcessing):
     ])
 
     def process(self, path, aid, data_type, save_as=None):
+        """
+        Process raw PubChem data to clean up row names, canonicalize smiles,
+        add inchikeys, dedupilcate, and save new data
+
+        Parameters
+        ----------
+        path : str
+            Path to PubChem csv to process
+
+        Returns
+        -------
+        df : DataFrame
+            Processed PubChem dataframe
+        """
+        data = self.read_csv(path)
+        data.rename(columns={"PUBCHEM_EXT_DATASOURCE_SMILES": "Smiles"}, inplace=True)
+        data = self.delete_metadata_rows(data)
+        data = data.dropna(subset="PUBCHEM_CID")
+        data["PUBCHEM_SID"] = data["PUBCHEM_SID"].astype(int)
+        data["PUBCHEM_CID"] = data["PUBCHEM_CID"].astype(int)
+        data = self.standardize_smiles_and_convert(data)
+        data.dropna(subset="INCHIKEY")
+        data = data[self.keep_cols]
+        data["dataset"] = aid
+        data["data_type"] = data_type
+        data["active"] = data["PUBCHEM_ACTIVITY_OUTCOME"] == "Active"
+        data = data.drop_duplicates(subset="INCHIKEY")
         if self.inhib:
-            data = self.read_csv(path)
-            data.rename(columns={"PUBCHEM_EXT_DATASOURCE_SMILES": "Smiles"}, inplace=True)
-            data = self.delete_metadata_rows(data)
-            data = data.dropna(subset="PUBCHEM_CID")
-            data["PUBCHEM_SID"] = data["PUBCHEM_SID"].astype(int)
-            data["PUBCHEM_CID"] = data["PUBCHEM_CID"].astype(int)
-            data = self.standardize_smiles_and_convert(data)
-            data.dropna(subset="INCHIKEY")
-            data = data[self.keep_cols]
-            data["dataset"] = aid
-            data["data_type"] = data_type
-            data["active"] = data["PUBCHEM_ACTIVITY_OUTCOME"] == "Active"
-            if self.inhib:
-                data["action_type"] = "inhibition"
-            elif self.react:
-                data["action_type"] = "substrate"
-            else:
-                raise ValueError("Must specify either inhib or react as True.")
-            if save_as is not None:
-                data.to_csv(save_as, index=False)
-            return data
+            data["action_type"] = "inhibition"
+        elif self.react:
+            data["action_type"] = "substrate"
+        else:
+            raise ValueError("Must specify either inhib or react as True.")
+        if save_as is not None:
+            data.to_csv(save_as, index=False)
+        return data
 
     @classmethod
     def delete_metadata_rows(self, data):
+        """
+        Deletes metadata rows from PubChem csv
+
+        Parameters
+        ----------
+        data : DataFrame
+            Pubchem dataframe read from csv
+        
+        Returns
+        -------
+        data : DataFrame
+            DataFrame with non-data rows deleted
+        """
         to_del = 0
         for index, row in data.iterrows():
             if index == 0:
