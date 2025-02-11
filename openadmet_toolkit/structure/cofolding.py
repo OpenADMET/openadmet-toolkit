@@ -15,6 +15,7 @@ def combine_seq_smiles_to_fasta(
     seqs: list[str],
     names: list[str],
     protein_or_ligand: list[str],
+    unit_stride: int = 2,
 ) -> str:
     """
     Takes a list of smiles strings and a fasta strings, a list of protein or ligand
@@ -33,6 +34,8 @@ def combine_seq_smiles_to_fasta(
         Name of protein or ligand
     protein_or_ligand: list[str]
         Either "protein" or "ligand"
+    unit_stride: int
+        Break up the sequence into chunks of this size
 
     Returns
     -------
@@ -40,18 +43,25 @@ def combine_seq_smiles_to_fasta(
         Combined fasta string
     """
 
-    if not len(seqs) == len(names) == len(protein_or_ligand):
+    if not (len(seqs) == len(names) == len(protein_or_ligand)):
         raise ValueError(
             "seqs, names, and protein_or_ligand must all be the same length"
         )
 
-    if not all(protein_or_ligand) in ["protein", "ligand"]:
+    if not all(item in ["protein", "ligand"] for item in protein_or_ligand):
         raise ValueError("unexpected tag, must be one of 'protein', 'ligand'")
 
-    to_return = ""
+    fasta_chunks = []
     for seq, name, pl in zip(seqs, names, protein_or_ligand):
-        to_return += f">{pl}|name={name}\n{seq}\n"
-    return to_return
+        fasta_chunks.append(f">{pl}|name={name}\n{seq}\n")
+
+    # join every unit_stride fasta_chunks
+    segments = []
+    for i in range(0, len(fasta_chunks), unit_stride):
+        seg = "".join(fasta_chunks[i : i + unit_stride])
+        segments.append(seg)
+
+    return segments
 
 
 class CoFoldingEngine(BaseModel):
