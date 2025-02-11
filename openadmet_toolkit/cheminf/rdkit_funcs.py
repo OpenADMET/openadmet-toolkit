@@ -102,7 +102,7 @@ def canonical_smiles(
             mol6_no_kekule, canonical=True, kekuleSmiles=True
         )
 
-        if smiles2_oa_canonical == "": # very rare case
+        if smiles2_oa_canonical == "":  # very rare case
             return pd.NA
         else:
             return smiles2_oa_canonical
