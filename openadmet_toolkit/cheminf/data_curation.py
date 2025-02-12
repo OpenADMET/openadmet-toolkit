@@ -342,7 +342,7 @@ class PubChemProcessing(CSVProcessing):
             data.to_csv(save_as, index=False)
         return data
 
-    @classmethod
+    @staticmethod
     def delete_metadata_rows(self, data):
         """
         Deletes metadata rows from PubChem csv
