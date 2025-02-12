@@ -1,9 +1,5 @@
-from pathlib import Path
-
-import numpy as np
 import pandas as pd
-import seaborn as sns
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field
 from rdkit import Chem
 
 from openadmet_toolkit.cheminf.rdkit_funcs import canonical_smiles, smiles_to_inchikey
@@ -186,12 +182,12 @@ class ChEMBLProcessing(CSVProcessing):
 
         # get active compounds
         # defined as compounds above pChEMBL value specified (default 5.0)
-        if pchembl_thresh != None:
+        if pchembl_thresh is not None:
             active = combined_df[combined_df["pChEMBL mean"] >= pchembl_thresh]
         else:
             active = combined_df.copy()
         clean_deduped = self.clean_and_dedupe_actives(active, save_as)
-        if min_assay_num != None:
+        if min_assay_num is not None:
             return self.more_than_L_assays(clean_deduped, min_assay_num)
         else:
             return clean_deduped
@@ -202,7 +198,7 @@ class ChEMBLProcessing(CSVProcessing):
         return substrates
 
     def more_than_L_assays(self, clean_deduped, min_assay_num, save_as=None):
-        if min_assay_num != None:
+        if min_assay_num is not None:
             more_than_eq_L_assay = clean_deduped[
                 clean_deduped["appears_in_N_ChEMBL_assays"] >= min_assay_num
             ]
@@ -253,7 +249,7 @@ class ChEMBLProcessing(CSVProcessing):
         return clean_deduped
 
     def get_more_than_N_compounds(self, combined, min_compound_num):
-        if min_compound_num != None:
+        if min_compound_num is not None:
             more_than_N_compounds = combined[
                 combined["molecule_count"] > min_compound_num
             ]
