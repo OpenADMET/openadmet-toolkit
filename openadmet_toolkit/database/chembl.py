@@ -6,6 +6,9 @@ import chembl_downloader
 import duckdb
 import pandas as pd
 from pydantic import BaseModel, Field, field_validator
+from openadmet_toolkit.cheminf.rdkit_funcs import canonical_smiles, smiles_to_inchikey
+import datamol as dm
+import loguru
 
 
 class ChEMBLDatabaseConnector(BaseModel):
@@ -257,7 +260,7 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         return self._chembl_connector.query(query, return_as=return_as)
 
     def get_activity_data(
-        self, return_as: str = "df"
+        self,  return_as: str = "df"
     ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
         """
         Get the high quality activity data for a given target using its ChEMBL ID.
@@ -302,19 +305,42 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         else:
             return hq_data
 
-    def aggregate_activity_data_by_compound(self) -> pd.DataFrame:
+    def aggregate_activity_data_by_compound(self, canonicalise=False) -> pd.DataFrame:
         """
         Get the high quality activity data for a given target using its ChEMBL ID, grouped by compound.
+        If canonicalise is True, the SMILES will be canonicalised and the InChIKey calculated and
+        aggregation will be done on the canonicalised SMILES and InChIKey.
+
+        Parameters
+        ----------
+        canonicalise: bool
+            Canonicalise the SMILES and calculate the InChIKey
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the aggregated activity data.
         """
         hq_data = self.get_activity_data(return_as="df")
-
-        data = hq_data.groupby(["molregno", "canonical_smiles"]).agg(
-            {
-                "assay_id": "count",
-                "standard_value": ["mean", "std"],
-                "pchembl_value": ["mean", "std"],
-            }
-        )
+        if canonicalise:
+            with dm.without_rdkit_log():
+                hq_data["OPENADMET_SMILES"] = hq_data["canonical_smiles"].progress_apply(lambda x: canonical_smiles(x))
+                hq_data["OPENADMET_INCHIKEY"] = hq_data["OPENADMET_SMILES"].progress_apply(lambda x: smiles_to_inchikey(x))
+                data = hq_data.groupby(["OPENADMET_SMILES","OPENADMET_INCHIKEY",]).agg(
+                    {
+                        "assay_id": "count",
+                        "standard_value": ["mean", "std"],
+                        "pchembl_value": ["mean", "std"],
+                    }
+                )
+        else:
+            data = hq_data.groupby(["molregno", "canonical_smiles"]).agg(
+                {
+                    "assay_id": "count",
+                    "standard_value": ["mean", "std"],
+                    "pchembl_value": ["mean", "std"],
+                }
+            )
         # unnenest column hierarchy
         data.columns = ["_".join(col) for col in data.columns]
         data = data.reset_index()
@@ -393,18 +419,42 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         else:
             return all_data
 
-    def aggregate_activity_data_by_compound(self) -> pd.DataFrame:
+    def aggregate_activity_data_by_compound(self, canonicalise=False) -> pd.DataFrame:
         """
         Get all the activity data for a given target using its ChEMBL ID, grouped by compound.
+        If canonicalise is True, the SMILES will be canonicalised and the InChIKey calculated and
+        aggregation will be done on the canonicalised SMILES and InChIKey.
+
+        Parameters
+        ----------
+        canonicalise: bool
+            Canonicalise the SMILES and calculate the InChIKey
+
+        Returns
+        -------
+        pd.DataFrame
+            DataFrame containing the aggregated activity data.
         """
         all_data = self.get_activity_data(return_as="df")
-        data = all_data.groupby(["molregno", "canonical_smiles"]).agg(
-            {
-                "assay_id": "count",
-                "standard_value": ["mean", "std"],
-                "pchembl_value": ["mean", "std"],
-            }
-        )
+        if canonicalise:
+            with dm.without_rdkit_log():
+                all_data["OPENADMET_SMILES"] = all_data["canonical_smiles"].progress_apply(lambda x: canonical_smiles(x))
+                all_data["OPENADMET_INCHIKEY"] = all_data["OPENADMET_SMILES"].progress_apply(lambda x: smiles_to_inchikey(x))
+                data = all_data.groupby(["OPENADMET_SMILES","OPENADMET_INCHIKEY"]).agg(
+                    {
+                        "assay_id": "count",
+                        "standard_value": ["mean", "std"],
+                        "pchembl_value": ["mean", "std"],
+                    }
+                )
+        else:
+            data = all_data.groupby(["molregno", "canonical_smiles"]).agg(
+                {
+                    "assay_id": "count",
+                    "standard_value": ["mean", "std"],
+                    "pchembl_value": ["mean", "std"],
+                }
+            )
         # unnenest column hierarchy
         data.columns = ["_".join(col) for col in data.columns]
         data = data.reset_index()
