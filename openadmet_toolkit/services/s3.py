@@ -1,6 +1,5 @@
 import os
 from os import PathLike
-from typing import Optional
 
 import boto3
 

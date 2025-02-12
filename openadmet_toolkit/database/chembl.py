@@ -5,7 +5,6 @@ from typing import Optional, Union
 import chembl_downloader
 import datamol as dm
 import duckdb
-import loguru
 import pandas as pd
 from pydantic import BaseModel, Field, field_validator
 
