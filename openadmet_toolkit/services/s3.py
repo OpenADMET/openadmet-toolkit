@@ -1,9 +1,9 @@
-
 import os
 from os import PathLike
 from typing import Optional
 
 import boto3
+
 
 class S3Bucket:
     """Interface for AWS S3 bucket."""
@@ -27,7 +27,6 @@ class S3Bucket:
         self.session = session
         self.bucket = bucket
         self.resource = self.session.resource("s3")
-
 
     @classmethod
     def from_settings(cls, settings, bucket: str):
@@ -101,7 +100,9 @@ class S3Bucket:
         if location is None:
             location = os.path.basename(path)
 
-        self.resource.Bucket(self.bucket).upload_file(path, location, ExtraArgs=extra_args)
+        self.resource.Bucket(self.bucket).upload_file(
+            path, location, ExtraArgs=extra_args
+        )
 
     def push_dir(self, path: PathLike, location: PathLike = None):
         """Push a directory at the local filesystem `path` to an object `location`
