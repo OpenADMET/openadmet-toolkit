@@ -52,7 +52,7 @@ class ChEMBLProcessing(CSVProcessing):
     inhib : bool
         Indicates if data is for inhibition
     react : bool
-        Indicates if data is for reactivity/substrate 
+        Indicates if data is for reactivity/substrate
     min_compound_num : int
         Minimum number of compounds threshold (determined by molecule_count)
     pchembl_thresh : float
@@ -63,7 +63,7 @@ class ChEMBLProcessing(CSVProcessing):
         Path/filename to save processed data csv
     keep_cols_inhib : list[str]
         List of ChEMBL columns to keep in processed data (default below)
-    
+
     """
 
     inhib: bool = Field(default=False)
@@ -298,7 +298,8 @@ class PubChemProcessing(CSVProcessing):
             "INCHIKEY",
             "PUBCHEM_ACTIVITY_OUTCOME",
             "PUBCHEM_CID",
-    ])
+        ]
+    )
 
     def process(self, path, aid, data_type, save_as=None):
         """
@@ -347,7 +348,7 @@ class PubChemProcessing(CSVProcessing):
         ----------
         data : DataFrame
             Pubchem dataframe read from csv
-        
+
         Returns
         -------
         data : DataFrame
@@ -361,7 +362,5 @@ class PubChemProcessing(CSVProcessing):
                 to_del += 1
             else:
                 break
-        data = data.drop(labels=list(range(0, to_del)), axis=0).reset_index(
-            drop=True
-        )
+        data = data.drop(labels=list(range(0, to_del)), axis=0).reset_index(drop=True)
         return data
