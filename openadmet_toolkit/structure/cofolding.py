@@ -77,6 +77,10 @@ class Chai1CoFoldingEngine(CoFoldingEngine):
     and paper here https://www.biorxiv.org/content/10.1101/2024.10.10.615955v1
     """
 
+    use_msa_server: bool = Field(
+        False, description="Use MSA server for multiple sequence alignment"
+    )
+
     def inference(
         self,
         fastas: Union[str, list[str]],
@@ -133,6 +137,7 @@ class Chai1CoFoldingEngine(CoFoldingEngine):
                 num_trunk_recycles=3,
                 num_diffn_timesteps=200,
                 seed=42,
+                use_msa_server=self.use_msa_server,
                 device=torch.device(self.device),
                 use_esm_embeddings=True,
             )
