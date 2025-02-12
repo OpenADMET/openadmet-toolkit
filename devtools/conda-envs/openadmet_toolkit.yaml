@@ -16,7 +16,7 @@ dependencies:
   - seaborn
   - matplotlib
   - pydantic
-  - pydantic_settings
+  - pydantic-settings
   - duckdb
   - datamol
     # Testing

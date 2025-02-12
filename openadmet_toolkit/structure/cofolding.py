@@ -58,7 +58,7 @@ def combine_seq_smiles_to_fasta(
     # join every unit_stride fasta_chunks
     segments = []
     for i in range(0, len(fasta_chunks), unit_stride):
-        seg = "".join(fasta_chunks[i : i + unit_stride])
+        seg = "".join(fasta_chunks[i : i + unit_stride]) # noqa: E203
         segments.append(seg)
 
     return segments
