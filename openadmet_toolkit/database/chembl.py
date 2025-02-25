@@ -1,6 +1,7 @@
 import abc
 from pathlib import Path
-from typing import Optional, Union, Iterable
+from typing import Optional, Union
+from collections.abc import Iterable
 
 import chembl_downloader
 import datamol as dm
@@ -95,8 +96,6 @@ class ChEMBLDatabaseConnector(BaseModel):
     def sql(self, sql: str) -> None:
         """Execute a SQL command on the ChEMBL database."""
         self.connection.sql(sql)
-
-
 
 
 class ChEMBLTargetCuratorBase(BaseModel):
@@ -432,7 +431,6 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
             return all_data.to_df()
         else:
             return all_data
-        
 
     def get_activity_data_for_compounds(self, compounds: Iterable[str]):
         # convert list of smiles to INCHIKEY
@@ -441,7 +439,6 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         df = self.get_activity_data(return_as="df")
         subset = df[df["standard_inchi_key"].isin(inchikeys)]
         return subset
-
 
     def aggregate_activity_data_by_compound(self, canonicalise=False) -> pd.DataFrame:
         """
