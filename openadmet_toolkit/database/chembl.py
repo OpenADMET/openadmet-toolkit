@@ -1,6 +1,7 @@
 import abc
 from pathlib import Path
 from typing import Optional, Union
+from collections.abc import Iterable
 
 import chembl_downloader
 import datamol as dm
@@ -276,7 +277,8 @@ class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         compound_structures.canonical_smiles as canonical_smiles,
         target_dictionary.tid                as tid,
         target_dictionary.chembl_id          as target_chembl_id,
-        pchembl_value                        as pchembl_value
+        pchembl_value                        as pchembl_value,
+        molecule_dictionary.pref_name        as compound_name,
         from activities
         join assays ON activities.assay_id = assays.assay_id
         join target_dictionary ON assays.tid = target_dictionary.tid
@@ -399,9 +401,11 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         activities.standard_value            as standard_value,
         molecule_hierarchy.parent_molregno   as molregno,
         compound_structures.canonical_smiles as canonical_smiles,
+        compound_structures.standard_inchi_key as standard_inchi_key,
         target_dictionary.tid                as tid,
         target_dictionary.chembl_id          as target_chembl_id,
-        pchembl_value                        as pchembl_value
+        pchembl_value                        as pchembl_value,
+        molecule_dictionary.pref_name        as compound_name,
         from activities
         join assays ON activities.assay_id = assays.assay_id
         join target_dictionary ON assays.tid = target_dictionary.tid
@@ -427,6 +431,14 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
             return all_data.to_df()
         else:
             return all_data
+
+    def get_activity_data_for_compounds(self, compounds: Iterable[str]):
+        # convert list of smiles to INCHIKEY
+        inchikeys = [smiles_to_inchikey(x) for x in compounds]
+        # get all the activity data for the target
+        df = self.get_activity_data(return_as="df")
+        subset = df[df["standard_inchi_key"].isin(inchikeys)]
+        return subset
 
     def aggregate_activity_data_by_compound(self, canonicalise=False) -> pd.DataFrame:
         """
