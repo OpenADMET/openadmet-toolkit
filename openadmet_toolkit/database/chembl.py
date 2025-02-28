@@ -468,16 +468,18 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
                 data = all_data.groupby(["OPENADMET_SMILES", "OPENADMET_INCHIKEY"]).agg(
                     {
                         "assay_id": "count",
-                        "standard_value": ["mean", "std"],
-                        "pchembl_value": ["mean", "std"],
+                        "standard_value": ["mean", "median", "std"],
+                        "pchembl_value": ["mean", "median", "std"],
                     }
                 )
         else:
             data = all_data.groupby(["molregno", "canonical_smiles"]).agg(
                 {
                     "assay_id": "count",
-                    "standard_value": ["mean", "std"],
-                    "pchembl_value": ["mean", "std"],
+                    "standard_value": ["mean", "median", "std"],
+                    "pchembl_value": ["mean", "median", "std"],
+                    "compound_name": "first",  # or "unique" if you want all names
+
                 }
             )
         # unnenest column hierarchy
