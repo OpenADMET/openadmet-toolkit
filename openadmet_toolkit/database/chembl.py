@@ -1,7 +1,7 @@
 import abc
+from collections.abc import Iterable
 from pathlib import Path
 from typing import Optional, Union
-from collections.abc import Iterable
 
 import chembl_downloader
 import datamol as dm
@@ -479,7 +479,6 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
                     "standard_value": ["mean", "median", "std"],
                     "pchembl_value": ["mean", "median", "std"],
                     "compound_name": "first",  # or "unique" if you want all names
-
                 }
             )
         # unnenest column hierarchy
