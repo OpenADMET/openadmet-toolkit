@@ -406,49 +406,36 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         target_dictionary.chembl_id          as target_chembl_id,
         pchembl_value                        as pchembl_value,
         molecule_dictionary.pref_name        as compound_name,
+        activities.standard_type             as standard_type,
+        activities.bao_endpoint              as bao_endpoint,
+        assays.description                   as assay_description,
+        assays.assay_organism                as assay_organism,
+        assays.assay_strain                  as assay_strain,
+        assays.assay_tissue                  as assay_tissue,
+        assays.assay_type                    as assay_type,
+        assays.assay_cell_type               as assay_cell_type,
+        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+        assays.variant_id                    as variant_id,
+        docs.year                            as doc_year,
+        docs.journal                         as doc_journal,
+        docs.doi                             as doc_doi,
+        docs.title                           as doc_title,
+        docs.authors                         as doc_authors,
+        docs.abstract                        as doc_abstract,
+        docs.patent_id                       as doc_patent_id,
+        docs.pubmed_id                       as doc_pubmed_id,
+        docs.chembl_release_id               as doc_chembl_release_id
         from activities
         join assays ON activities.assay_id = assays.assay_id
         join target_dictionary ON assays.tid = target_dictionary.tid
         join target_components ON target_dictionary.tid = target_components.tid
         join component_class ON target_components.component_id = component_class.component_id
+        join docs ON activities.doc_id = docs.doc_id
         join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_units = 'nM' and
         target_chembl_id = '{self.chembl_target_id}'\n
-        """
-
-        if self.require_pchembl:
-            query += "and pchembl_value is not null\n"
-
-        # if we specified a single standard type, we can filter it here as doesn't happen at the assay level
-        if self.standard_type:
-            query += f"and standard_type = '{self.standard_type}'\n"
-
-        all_data = self._chembl_connector.query(query, return_as="duckdb")
-
-        if return_as == "df":
-            return all_data.to_df()
-        else:
-            return all_data
-
-    def get_activity_data_detailed(
-        self, return_as: str = "df"
-    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
-        """
-        Get all the activity data for a given target using its ChEMBL ID.
-        """
-        query = f"""
-        select *
-        from activities
-        join assays ON activities.assay_id = assays.assay_id
-        join target_dictionary ON assays.tid = target_dictionary.tid
-        join compound_structures ON activities.molregno = compound_structures.molregno
-        join docs ON activities.doc_id = docs.doc_id
-        join cell_dictionary ON assays.cell_id = cell_dictionary.cell_id
-        where activities.standard_units = 'nM' and
-        target_dictionary.chembl_id = '{self.chembl_target_id}'\n
-        and activities.pchembl_value is not null 
         """
 
         if self.require_pchembl:
@@ -474,10 +461,7 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         else:
             inchikeys = [smiles_to_inchikey(x) for x in compounds]
         # get all the activity data for the target
-        if detail:
-            df = self.get_activity_detail(return_as="df")
-        else:
-            df = self.get_activity_data_detailed(return_as="df")
+        df = self.get_activity_data(return_as="df")
         subset = df[df["standard_inchi_key"].isin(inchikeys)]
         return subset
 
