@@ -452,8 +452,9 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         else:
             return all_data
 
-
-    def get_activity_data_for_compounds(self, compounds: Iterable[str], canonicalise=False, detail=False) -> pd.DataFrame:
+    def get_activity_data_for_compounds(
+        self, compounds: Iterable[str], canonicalise=False, detail=False
+    ) -> pd.DataFrame:
         # convert list of smiles to INCHIKEY
         if canonicalise:
             with dm.without_rdkit_log():
