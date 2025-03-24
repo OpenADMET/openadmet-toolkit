@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 
 [project]
-name = "openadmet.toolkit"
+name = "openadmet-toolkit"
 description = "A short description of the project (less than one line)."
 dynamic = ["version"]
 readme = "README.md"
