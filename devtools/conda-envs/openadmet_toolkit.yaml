@@ -25,6 +25,7 @@ dependencies:
   - codecov
   - pre-commit
   - pytorch <2.4.0
+  - boto3
 
     # Pip-only installs
   - pip:
