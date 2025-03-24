@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from openadmet.toolkit.cheminf.data_curation import ChEMBLProcessing, PubChemProcessing
+from openadmet.toolkit.chemoinformatics.data_curation import ChEMBLProcessing, PubChemProcessing
 from openadmet.toolkit.tests.datafiles import chembl_file, pubchem_file
 
 
