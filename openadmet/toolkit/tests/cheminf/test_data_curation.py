@@ -1,8 +1,8 @@
 import pandas as pd
 import pytest
 
-from openadmet_toolkit.cheminf.data_curation import ChEMBLProcessing, PubChemProcessing
-from openadmet_toolkit.tests.datafiles import chembl_file, pubchem_file
+from openadmet.toolkit.cheminf.data_curation import ChEMBLProcessing, PubChemProcessing
+from openadmet.toolkit.tests.datafiles import chembl_file, pubchem_file
 
 
 @pytest.fixture()
