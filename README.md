@@ -1,4 +1,4 @@
-openadmet_toolkit
+openadmet-toolkit
 ==============================
 [//]: # (Badges)
 [![Logo](https://img.shields.io/badge/OSMF-OpenADMET-%23002f4a)](https://openadmet.org/)
@@ -8,6 +8,10 @@ openadmet_toolkit
 
 
 [OpenADMET](https://openadmet.org/) toolkit for large scale ADMET modelling, focused around data scraping, cleaning, screening and preparation for downstream machine learning workflows.
+
+## NOTE:
+
+This repo is under very active development, we make no guarantees about stability or correctness. 
 
 ## Getting started
 
