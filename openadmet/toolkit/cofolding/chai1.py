@@ -10,7 +10,7 @@ import torch
 from chai_lab.chai1 import run_inference
 from pydantic import Field
 
-from openadmet.toolkit.cofold_base import CoFoldingEngine
+from openadmet.toolkit.cofolding.cofold_base import CoFoldingEngine
 
 
 class Chai1CoFoldingEngine(CoFoldingEngine):
