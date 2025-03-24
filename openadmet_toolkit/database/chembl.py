@@ -381,7 +381,7 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
 
     @field_validator("standard_type")
     def check_in_allowed_standard_types(cls, value):
-        allowed_standard_types = ["IC50", "Ki", "Kd", "EC50"]
+        allowed_standard_types = ["IC50", "Ki", "Kd", "EC50", "AC50", "Potency"]
         if value not in allowed_standard_types:
             raise ValueError(
                 f"Invalid standard type: {value}. Allowed values: {allowed_standard_types}"
@@ -406,24 +406,44 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         target_dictionary.chembl_id          as target_chembl_id,
         pchembl_value                        as pchembl_value,
         molecule_dictionary.pref_name        as compound_name,
+        activities.standard_type             as standard_type,
+        activities.bao_endpoint              as bao_endpoint,
+        assays.description                   as assay_description,
+        assays.assay_organism                as assay_organism,
+        assays.assay_strain                  as assay_strain,
+        assays.assay_tissue                  as assay_tissue,
+        assays.assay_type                    as assay_type,
+        assays.assay_cell_type               as assay_cell_type,
+        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+        assays.variant_id                    as variant_id,
+        docs.year                            as doc_year,
+        docs.journal                         as doc_journal,
+        docs.doi                             as doc_doi,
+        docs.title                           as doc_title,
+        docs.authors                         as doc_authors,
+        docs.abstract                        as doc_abstract,
+        docs.patent_id                       as doc_patent_id,
+        docs.pubmed_id                       as doc_pubmed_id,
+        docs.chembl_release_id               as doc_chembl_release_id
         from activities
         join assays ON activities.assay_id = assays.assay_id
         join target_dictionary ON assays.tid = target_dictionary.tid
         join target_components ON target_dictionary.tid = target_components.tid
         join component_class ON target_components.component_id = component_class.component_id
+        join docs ON activities.doc_id = docs.doc_id
         join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_units = 'nM' and
-        target_chembl_id = '{self.chembl_target_id}'
+        target_chembl_id = '{self.chembl_target_id}'\n
         """
 
         if self.require_pchembl:
-            query += "and pchembl_value is not null"
+            query += "and pchembl_value is not null\n"
 
         # if we specified a single standard type, we can filter it here as doesn't happen at the assay level
         if self.standard_type:
-            query += f"and standard_type = '{self.standard_type}'"
+            query += f"and standard_type = '{self.standard_type}'\n"
 
         all_data = self._chembl_connector.query(query, return_as="duckdb")
 
@@ -432,9 +452,15 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         else:
             return all_data
 
-    def get_activity_data_for_compounds(self, compounds: Iterable[str]):
+    def get_activity_data_for_compounds(
+        self, compounds: Iterable[str], canonicalise=False, detail=False
+    ) -> pd.DataFrame:
         # convert list of smiles to INCHIKEY
-        inchikeys = [smiles_to_inchikey(x) for x in compounds]
+        if canonicalise:
+            with dm.without_rdkit_log():
+                inchikeys = [smiles_to_inchikey(canonical_smiles(x)) for x in compounds]
+        else:
+            inchikeys = [smiles_to_inchikey(x) for x in compounds]
         # get all the activity data for the target
         df = self.get_activity_data(return_as="df")
         subset = df[df["standard_inchi_key"].isin(inchikeys)]
