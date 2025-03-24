@@ -1,4 +1,3 @@
-
 from pathlib import Path
 from pydantic import BaseModel, Field
 
@@ -61,4 +60,3 @@ class CoFoldingEngine(BaseModel):
     device: str = Field(
         "cuda:0", description="Device to run the model on, torch.device string"
     )
-

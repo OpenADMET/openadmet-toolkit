@@ -1,4 +1,3 @@
-
 # import the classes from the module
 # we don't test on GPUs yet so the best we can do is to check if the classes are importable
 def test_cofold_imports():
