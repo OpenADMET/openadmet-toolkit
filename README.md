@@ -11,7 +11,7 @@ openadmet-toolkit
 
 ## NOTE:
 
-This repo is under very active development, we make no guarantees about the stability or correctness. 
+This repo is under very active development, we make no guarantees about stability or correctness. 
 
 ## Getting started
 
