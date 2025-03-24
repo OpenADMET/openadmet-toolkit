@@ -24,8 +24,8 @@ dependencies:
   - pytest-cov
   - codecov
   - pre-commit
-  - torch <=2.4.0
-
+  - pytorch <2.4.0
+  
     # Pip-only installs
   - pip:
     - chembl-downloader
