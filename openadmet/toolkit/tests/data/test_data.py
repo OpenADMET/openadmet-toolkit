@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from openadmet_toolkit.tests.datafiles import chembl_file, pubchem_file
+from openadmet.toolkit.tests.datafiles import chembl_file, pubchem_file
 
 
 def test_chembl_file():

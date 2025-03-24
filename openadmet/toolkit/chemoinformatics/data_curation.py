@@ -2,7 +2,7 @@ import pandas as pd
 from pydantic import BaseModel, Field
 from rdkit import Chem
 
-from openadmet_toolkit.cheminf.rdkit_funcs import canonical_smiles, smiles_to_inchikey
+from openadmet.toolkit.chemoinformatics.rdkit_funcs import canonical_smiles, smiles_to_inchikey
 
 
 class CSVProcessing(BaseModel):

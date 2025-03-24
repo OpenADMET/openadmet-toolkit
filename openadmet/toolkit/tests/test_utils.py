@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from openadmet_toolkit.utils.presentation import make_pptx_from_molecule_data
+from openadmet.toolkit.utils.presentation import make_pptx_from_molecule_data
 
 
 @pytest.fixture

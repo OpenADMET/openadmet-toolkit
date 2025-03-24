@@ -9,7 +9,7 @@ import duckdb
 import pandas as pd
 from pydantic import BaseModel, Field, field_validator
 
-from openadmet_toolkit.cheminf.rdkit_funcs import canonical_smiles, smiles_to_inchikey
+from openadmet.toolkit.chemoinformatics.rdkit_funcs import canonical_smiles, smiles_to_inchikey
 
 
 class ChEMBLDatabaseConnector(BaseModel):

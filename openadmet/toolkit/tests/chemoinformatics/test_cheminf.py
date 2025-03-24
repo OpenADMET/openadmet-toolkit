@@ -1,13 +1,13 @@
 import pandas as pd
 import pytest
 
-from openadmet_toolkit.cheminf.rdkit_funcs import (
+from openadmet.toolkit.chemoinformatics.rdkit_funcs import (
     canonical_smiles,
     old_standardize_smiles,
     run_reaction,
     smiles_to_inchikey,
 )
-from openadmet_toolkit.cheminf.retrosynth import ReactionSMART, Retrosynth
+from openadmet.toolkit.chemoinformatics.retrosynth import ReactionSMART, Retrosynth
 
 
 @pytest.fixture()
