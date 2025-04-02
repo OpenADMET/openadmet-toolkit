@@ -80,9 +80,9 @@ class Boltz1CoFoldingEngine(CoFoldingEngine):
                             "--use_msa_server", f"{self.use_msa_server}",
                             "--msa_server_url", "https://api.colabfold.com",
                             "--msa_pairing_strategy", "greedy"])
-            
+
             # clean out gpu_memory
             torch.cuda.empty_cache()
 
-            
-            
+
+
