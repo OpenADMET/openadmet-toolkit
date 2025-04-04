@@ -1,10 +1,12 @@
 import gc
 import os
 import tempfile
+import pandas as pd
 from pathlib import Path
 from shutil import copyfile
 from typing import Optional, Union
 import subprocess
+from boltz import inference
 
 import numpy as np
 import torch
@@ -84,5 +86,23 @@ class Boltz1CoFoldingEngine(CoFoldingEngine):
             # clean out gpu_memory
             torch.cuda.empty_cache()
 
+            fasta_name, _  = os.path.splittext(os.path.basename(fasta_path))
 
+            temp_out_path = f"{tmpdirname}/lighting_logs/predictions/{fasta_name}"
+            cif_paths = f"{temp_out_path}/{fasta_name}_model_0.cif"
+            all_scores = pd.read_json(f"{temp_out_path}/confidence_{fasta_name}_model_0.json")
+            agg_conf = all_scores["confidence_score"].values
+            all_scores.append(agg_conf)
 
+            new_cif_paths = []
+            for j, cif_path in enumerate(cif_paths):
+                new_cif_path = self.output_dir / f"{protein_name}_{j}.cif"
+                copyfile(cif_path, new_cif_path)
+                new_cif_paths.append(new_cif_path)
+
+            all_paths.append(new_cif_paths)
+
+            gc.collect()
+
+        return np.asarray(all_paths), np.asarray(all_scores)
+            
