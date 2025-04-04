@@ -105,4 +105,4 @@ class Boltz1CoFoldingEngine(CoFoldingEngine):
             gc.collect()
 
         return np.asarray(all_paths), np.asarray(all_scores)
-            
+
