@@ -96,7 +96,7 @@ class Boltz1CoFoldingEngine(CoFoldingEngine):
                             "--use_msa_server",
                             "--msa_server_url", "https://api.colabfold.com",
                             "--msa_pairing_strategy", "greedy"]
-            
+
             if self.use_msa_server:
                 args.append("--use_msa_server")
 
@@ -108,7 +108,7 @@ class Boltz1CoFoldingEngine(CoFoldingEngine):
             fasta_name  = fasta_path.stem
 
             temp_out_path = tmpdirname / f"boltz_results_{fasta_name}/predictions/{fasta_name}"
-            
+
             cif_paths = []
             scores = []
             for i in range(self.diffusion_samples):
@@ -130,4 +130,3 @@ class Boltz1CoFoldingEngine(CoFoldingEngine):
             gc.collect()
 
         return np.asarray(all_paths), np.asarray(all_scores)
-

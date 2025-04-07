@@ -7,7 +7,7 @@ def combine_seq_smiles_to_fasta(
     names: list[str],
     protein_or_ligand: list[str],
     unit_stride: int = 2,
-    
+
 ) -> str:
     """
     Takes a list of smiles strings and a fasta strings, a list of protein or ligand
