@@ -68,10 +68,9 @@ class Boltz1CoFoldingEngine(CoFoldingEngine):
         all_scores = []
         for i, (protein_name, fasta) in enumerate(zip(protein_names, fastas)):
 
-            # tmpdirname = tempfile.mkdtemp(
-            #     prefix=f".boltz1_{protein_name}", dir=self.output_dir
-            # )
-            tmpdirname = self.output_dir / f"boltz1_{protein_name}"
+            tmpdirname = Path(tempfile.mkdtemp(
+                prefix=f".boltz1_{protein_name}", dir=self.output_dir
+            ))
             tmpdirname.mkdir(parents=True, exist_ok=True)
             # make seperate tempdir for fasta
             fasta_path = tmpdirname / f"input_{protein_name}.fasta"
