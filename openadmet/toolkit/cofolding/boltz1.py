@@ -6,7 +6,6 @@ from pathlib import Path
 from shutil import copyfile
 from typing import Optional, Union
 import subprocess
-from boltz import inference
 
 import numpy as np
 import torch
@@ -20,8 +19,19 @@ class Boltz1CoFoldingEngine(CoFoldingEngine):
     use_msa_server: bool = Field(
                 False, description="Use MSA server for multiple sequence alignment"
     )
+    diffusion_samples: int = Field(
+                1, description="Number of diffusion samples"
+    )
+    recycling_steps: int = Field(
+                3, description="Number of recycling steps"
+    )
+    sampling_steps: int = Field(
+                200, description="Number of sampling steps"
+    )
 
-    def inference(self, fastas):
+    def inference(self,
+        fastas: Union[str, list[str]],
+        protein_names: Optional[Union[str, list[str]]] = None,):
         """
         Run inference on the given fasta files and return the paths to the generated cif files
 
@@ -58,49 +68,64 @@ class Boltz1CoFoldingEngine(CoFoldingEngine):
         all_scores = []
         for i, (protein_name, fasta) in enumerate(zip(protein_names, fastas)):
 
-            tmpdirname = Path(os.path.join(tempfile.mkdtemp(), "tmp_fold"))
+            # tmpdirname = tempfile.mkdtemp(
+            #     prefix=f".boltz1_{protein_name}", dir=self.output_dir
+            # )
+            tmpdirname = self.output_dir / f"boltz1_{protein_name}"
+            tmpdirname.mkdir(parents=True, exist_ok=True)
             # make seperate tempdir for fasta
-            fasta_path = Path(tempfile.NamedTemporaryFile(suffix=".fasta").name)
+            fasta_path = tmpdirname / f"input_{protein_name}.fasta"
 
             with open(fasta_path, "w") as f:
                 f.write(fasta)
 
-            subprocess.run(["boltz", "predict",
+            args = ["boltz", "predict",
                             fasta_path,
                             "--out_dir", tmpdirname,
-                            "--cache", f"{tmpdirname}/.boltz",
-                            "--checkpoint", "None",
+                            # "--cache", f"{self.output_dir /".boltz"}", ch
+                            # "--checkpoint", "None", we can specify a checkpoint later if we do some fine-tuning
                             "--devices", "1",
                             "--accelerator", "gpu",
-                            "--recycling_steps", "3",
-                            "--sampling_steps", "200",
-                            "--diffusion_samples", "1",
+                            "--recycling_steps", str(self.recycling_steps),
+                            "--sampling_steps", str(self.sampling_steps),
+                            "--diffusion_samples", str(self.diffusion_samples),
                             "--step_scale", "1.638",
                             "--output_format", "mmcif",
                             "--num_workers", "2",
-                            "--override", "False",
-                            "--use_msa_server", f"{self.use_msa_server}",
+                            "--override",
+                            "--use_msa_server",
                             "--msa_server_url", "https://api.colabfold.com",
-                            "--msa_pairing_strategy", "greedy"])
+                            "--msa_pairing_strategy", "greedy"]
+            
+            if self.use_msa_server:
+                args.append("--use_msa_server")
+
+            subprocess.run(args)
 
             # clean out gpu_memory
             torch.cuda.empty_cache()
 
-            fasta_name, _  = os.path.splittext(os.path.basename(fasta_path))
+            fasta_name  = fasta_path.stem
 
-            temp_out_path = f"{tmpdirname}/lighting_logs/predictions/{fasta_name}"
-            cif_paths = f"{temp_out_path}/{fasta_name}_model_0.cif"
-            all_scores = pd.read_json(f"{temp_out_path}/confidence_{fasta_name}_model_0.json")
-            agg_conf = all_scores["confidence_score"].values
-            all_scores.append(agg_conf)
+            temp_out_path = tmpdirname / f"boltz_results_{fasta_name}/predictions/{fasta_name}"
+            
+            cif_paths = []
+            scores = []
+            for i in range(self.diffusion_samples):
+                cif_path = f"{temp_out_path}/{fasta_name}_model_{i}.cif"
+                score = pd.read_json(f"{temp_out_path}/confidence_{fasta_name}_model_{i}.json")["confidence_score"].values
+                cif_paths.append(cif_path)
+                scores.append(score[0])
+
 
             new_cif_paths = []
-            for j, cif_path in enumerate(cif_paths):
-                new_cif_path = self.output_dir / f"{protein_name}_{j}.cif"
+            for i, cif_path in enumerate(cif_paths):
+                new_cif_path = self.output_dir / f"{protein_name}_{i}.cif"
                 copyfile(cif_path, new_cif_path)
                 new_cif_paths.append(new_cif_path)
 
             all_paths.append(new_cif_paths)
+            all_scores.append(scores)
 
             gc.collect()
 
