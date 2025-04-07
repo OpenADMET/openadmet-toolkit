@@ -31,3 +31,4 @@ dependencies:
   - pip:
     - chembl-downloader
     - chai_lab
+    - boltz
