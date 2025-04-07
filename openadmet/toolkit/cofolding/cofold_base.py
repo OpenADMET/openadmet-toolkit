@@ -50,7 +50,7 @@ def combine_seq_smiles_to_fasta(
 
     if not all(item in ["protein", "ligand"] for item in protein_or_ligand):
         raise ValueError("unexpected tag, must be one of 'protein', 'ligand'")
-    
+
     if method not in ["chai1", "boltz1"]:
         raise ValueError("unexpected method, must be one of 'chai1', 'boltz1'")
 
