@@ -92,7 +92,6 @@ class Boltz1CoFoldingEngine(CoFoldingEngine):
                             "--output_format", "mmcif",
                             "--num_workers", "2",
                             "--override",
-                            "--use_msa_server",
                             "--msa_server_url", "https://api.colabfold.com",
                             "--msa_pairing_strategy", "greedy"]
 
