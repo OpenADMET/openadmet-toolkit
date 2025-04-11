@@ -62,10 +62,10 @@ def combine_seq_smiles_to_fasta(
         fasta_chunks = []
         if msa_paths is not None:
             for seq, name, pl, path in zip(seqs, names, protein_or_ligand, msa_paths):
-                fasta_chunks.append(f">{name}|{pl}|{path}\n{seq}\n")        
+                fasta_chunks.append(f">{name}|{pl}|{path}\n{seq}\n")
         else:
             for seq, name, pl in zip(seqs, names, protein_or_ligand):
-                fasta_chunks.append(f">{name}|{pl}\n{seq}\n")   
+                fasta_chunks.append(f">{name}|{pl}\n{seq}\n")
 
     # join every unit_stride fasta_chunks
     segments = []
