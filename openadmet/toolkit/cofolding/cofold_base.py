@@ -6,7 +6,10 @@ def combine_seq_smiles_to_fasta(
     seqs: list[str],
     names: list[str],
     protein_or_ligand: list[str],
+    msa_paths: list[str] = None,
+    method: str="chai1",
     unit_stride: int = 2,
+
 ) -> str:
     """
     Takes a list of smiles strings and a fasta strings, a list of protein or ligand
@@ -24,7 +27,11 @@ def combine_seq_smiles_to_fasta(
     names: list[str]
         Name of protein or ligand
     protein_or_ligand: list[str]
-        Either "protein" or "ligand"
+        Either "protein" or "ligand" or "smiles" or "ccd"
+    msa_paths: list[str]
+        Paths to the MSA files, only for boltz1
+    method: str
+        The method to use for cofolding, either "chai1" or "boltz1"
     unit_stride: int
         Break up the sequence into chunks of this size
 
@@ -38,13 +45,27 @@ def combine_seq_smiles_to_fasta(
         raise ValueError(
             "seqs, names, and protein_or_ligand must all be the same length"
         )
+    if msa_paths is not None and len(msa_paths) != len(seqs):
+        raise ValueError("msa_paths must be the same length as seqs")
 
-    if not all(item in ["protein", "ligand"] for item in protein_or_ligand):
-        raise ValueError("unexpected tag, must be one of 'protein', 'ligand'")
+    if not all(item in ["protein", "ligand", "smiles", "ccd"] for item in protein_or_ligand):
+        raise ValueError("unexpected tag, must be one of 'protein', 'ligand', 'smiles', 'ccd'")
 
-    fasta_chunks = []
-    for seq, name, pl in zip(seqs, names, protein_or_ligand):
-        fasta_chunks.append(f">{pl}|name={name}\n{seq}\n")
+    if method not in ["chai1", "boltz1"]:
+        raise ValueError("unexpected method, must be one of 'chai1', 'boltz1'")
+
+    if method == "chai1":
+        fasta_chunks = []
+        for seq, name, pl in zip(seqs, names, protein_or_ligand):
+            fasta_chunks.append(f">{pl}|name={name}\n{seq}\n")
+    elif method == "boltz1":
+        fasta_chunks = []
+        if msa_paths is not None:
+            for seq, name, pl, path in zip(seqs, names, protein_or_ligand, msa_paths):
+                fasta_chunks.append(f">{name}|{pl}|{path}\n{seq}\n")
+        else:
+            for seq, name, pl in zip(seqs, names, protein_or_ligand):
+                fasta_chunks.append(f">{name}|{pl}\n{seq}\n")
 
     # join every unit_stride fasta_chunks
     segments = []
