@@ -47,7 +47,7 @@ from openadmet.toolkit.cofolding.chai1 import Chai1CoFoldingEngine
     "--diffusion_samples",
     type=click.INT,
     default=1,
-    help="Number of diffusion samples", 
+    help="Number of diffusion samples",
     required=False,
 )
 @click.option(
@@ -82,7 +82,7 @@ def cofolding(
     # Check if protein_names and fastas are of the same length
     if protein_names is not None and len(fastas) != len(protein_names):
         raise ValueError("Length of fasta and protein_name should be the same")
-    
+
     # Initialize the cofolding engine
     if model == "chai1":
         cofolding_engine = Chai1CoFoldingEngine(
@@ -100,7 +100,7 @@ def cofolding(
         )
     else:
         raise ValueError("Invalid model name. Choose either 'chai1' or 'boltz1'.")
-    
+
     # Inference
     cofolding_engine.inference(
         fastas=fastas,
