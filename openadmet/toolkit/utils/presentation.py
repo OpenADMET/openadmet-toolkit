@@ -136,7 +136,7 @@ def make_pptx_from_molecule_data(
             mol_list,
             molsPerRow=mols_per_row,
             legends=legends,
-            subImgSize=(200, 200),
+            subImgSize=(150, 150),
             useSVG=True,
             returnPNG=True,
         )
