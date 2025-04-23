@@ -114,8 +114,7 @@ class Boltz1CoFoldingEngine(CoFoldingEngine):
                 score = pd.read_json(f"{temp_out_path}/confidence_{fasta_name}_model_{i}.json")["confidence_score"].values
                 cif_paths.append(cif_path)
                 scores.append(score[0])
-
-
+                
             new_cif_paths = []
             for i, cif_path in enumerate(cif_paths):
                 new_cif_path = self.output_dir / f"{protein_name}_{i}.cif"
