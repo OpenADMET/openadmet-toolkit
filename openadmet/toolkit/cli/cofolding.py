@@ -1,4 +1,5 @@
 import click
+import pandas as pd
 
 from openadmet.toolkit.cofolding.boltz1 import Boltz1CoFoldingEngine
 from openadmet.toolkit.cofolding.chai1 import Chai1CoFoldingEngine
@@ -102,7 +103,14 @@ def cofolding(
         raise ValueError("Invalid model name. Choose either 'chai1' or 'boltz1'.")
 
     # Inference
-    cofolding_engine.inference(
+    paths, scores = cofolding_engine.inference(
         fastas=fastas,
         protein_names=protein_names,
     )
+    print("Paths to the generated cif files:")
+
+    for i, path in enumerate(paths):
+        print(f"Protein {i}: {path}")
+
+    score_df = pd.DataFrame(scores, columns=["score"])
+    score_df.to_csv(f"{output_dir}/confidence_scores.csv", index=False)
