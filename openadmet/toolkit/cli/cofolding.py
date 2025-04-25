@@ -115,7 +115,7 @@ def cofolding(
     # Check if protein_names and fastas are of the same length
     if protein_names is not None and len(fastas) != len(protein_names):
         raise ValueError("Length of fasta and protein_name should be the same")
-    
+
     if any(diffusion_samples, recycling_steps, sampling_steps) != None and model == "chai1":
         raise ValueError("Diffusion samples, recycling steps, and sampling steps should be None for chai1 model")
     if any(num_trunk_recycles, num_diffn_timesteps, use_esm_embeddings, seed) != None and model == "boltz1":
