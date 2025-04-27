@@ -44,8 +44,8 @@ def create_presentation(image_paths, output_file) -> None:
         # Add the image to the slide
         left = Inches(1)
         top = Inches(0)
-        width = Inches(8)
-        slide.shapes.add_picture(image_path, left, top, width=width)
+        height = Inches(7)  # Adjust height as needed
+        slide.shapes.add_picture(image_path, left, top, height=height)
 
     # Save the presentation
     prs.save(output_file)
@@ -56,7 +56,7 @@ def make_pptx_from_molecule_data(
     dataframe: pd.DataFrame,
     output_file: str | Path,
     smiles_col="SMILES",
-    mols_per_slide: int = 25,
+    mols_per_slide: int = 36,
     keep_images=False,
     image_dir: str | Path = "images",
     legend_columns=None,
