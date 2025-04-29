@@ -22,6 +22,21 @@ class Chai1CoFoldingEngine(CoFoldingEngine):
     use_msa_server: bool = Field(
         False, description="Use MSA server for multiple sequence alignment"
     )
+    num_trunk_recycles: int = Field(
+        3, description="Number of recycling steps for trunk model"
+    )
+    num_diffn_timesteps: int = Field(
+        200, description="Number of diffusion timesteps for trunk model"
+    )
+    device: str = Field(
+        "cuda:0", description="Device to run the model on, torch.device string"
+    )
+    seed: int = Field(
+        42, description="Random seed for reproducibility"
+    )
+    use_esm_embeddings: bool = Field(
+        True, description="Use ESM embeddings for trunk model"
+    )
 
     def inference(
         self,
