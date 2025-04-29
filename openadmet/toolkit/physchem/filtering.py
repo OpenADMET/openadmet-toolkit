@@ -167,4 +167,3 @@ def get_min_dists_multi(mol, chromophores, prot_sites):
                 for chrom_match in atom_matches_chrom:
                     min_dists.append(get_match_min_dists(distances, list(chrom_match), list(prot_match)))
     return(min_dists)
-
