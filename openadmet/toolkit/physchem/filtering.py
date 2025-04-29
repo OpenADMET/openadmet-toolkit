@@ -21,9 +21,9 @@ def basic_filter(df, property, min_threshold, max_threshold):
     property : str
         The name of the column in the DataFrame representing the property to filter on.
     min_threshold : float
-        The minimum value of the property. 
+        The minimum value of the property.
     max_threshold : float
-        The maximum value of the property. 
+        The maximum value of the property.
 
     Returns
     -------
@@ -41,7 +41,7 @@ def process_catalog(path):
     Parameters
     ----------
     path : str
-        The file path to the CSV file containing the chemical catalog. 
+        The file path to the CSV file containing the chemical catalog.
         The file must include a 'smiles' column with SMILES strings.
 
     Returns
@@ -68,7 +68,7 @@ def filter_pkas(pkas, min_pka=3, max_pka=11, min_unit_sep=1):
     """
     Filters a list of pKa values based on specific criteria.
 
-    Parameters      
+    Parameters
     ----------
     pkas : list[float]
         A list of pKa values to be filtered.
@@ -83,27 +83,27 @@ def filter_pkas(pkas, min_pka=3, max_pka=11, min_unit_sep=1):
     bool
         True if the list of pKa values passes all checks, False otherwise.
     """
-    
+
     # Check if list is empty
     if len(pkas) == 0:
         return False
-    
+
     # Check if at AT LEAST ONE pKa is between min_pka and max_pka (inclusive)
     valid_range = False
     for pka in pkas:
         if min_pka <= pka <= max_pka:
             valid_range = True
             break
-    
+
     if not valid_range:
         return False
-        
+
     # Check if all pKa values are at least unit_sep pka units apart from each other
     for i in range(len(pkas)):
         for j in range(i + 1, len(pkas)):
             if abs(pkas[i] - pkas[j]) < min_unit_sep:
                 return False
-    
+
     # If we've passed all checks, return True
     return True
 
@@ -164,4 +164,4 @@ def get_min_dists_multi(mol, chromophores, prot_sites):
                 for chrom_match in atom_matches_chrom:
                     min_dists.append(get_match_min_dists(distances, list(chrom_match), list(prot_match)))
     return(min_dists)
-        
+
