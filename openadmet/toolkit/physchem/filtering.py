@@ -10,6 +10,9 @@ tqdm.pandas()
 
 import datamol as dm
 
+def filter_by_property(csv_path, min_pka=3, max_pka=11, min_unit_sep=1):
+    process_catalog(csv_path)
+
 def basic_filter(df, property, min_threshold, max_threshold):
     """
     Filters a DataFrame based on a property value range.
