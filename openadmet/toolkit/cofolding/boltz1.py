@@ -115,7 +115,6 @@ class Boltz1CoFoldingEngine(CoFoldingEngine):
                 cif_paths.append(cif_path)
                 scores.append(score[0])
 
-
             new_cif_paths = []
             for i, cif_path in enumerate(cif_paths):
                 new_cif_path = self.output_dir / f"{protein_name}_{i}.cif"
