@@ -171,7 +171,7 @@ class pKaFilter(BaseFilter):
                 valid_range = True
                 break
         return valid_range
-    
+
     def pka_separation(pkas: list, min_unit_sep: float) -> bool:
         """
         Check if the pKa values are at least min_unit_sep apart.
