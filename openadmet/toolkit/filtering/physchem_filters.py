@@ -71,7 +71,7 @@ class SMARTSProximityFilter(BaseFilter):
         Parameters
         ----------
         df : pandas.DataFrame
-            The input DataFrame to be filtered. 
+            The input DataFrame to be filtered.
         mode : str
             Either "mark" or "remove". If "mark", the filter will mark the rows that meet the criteria
             either True or False. If "remove", the filter will remove the rows that meet the criteria.
@@ -84,11 +84,11 @@ class SMARTSProximityFilter(BaseFilter):
         #TODO: figure out how to treat the sites
 
         return self.mark_or_remove(df, mode, "proximity")
-    
+
     def get_match_min_dists(self, distances, chrom_inds, prot_ind):
         sub_dist_mat = distances[chrom_inds][:,prot_ind]
         return(sub_dist_mat.min())
-    
+
     def get_min_dists(self, mol, chrom, prot_sites):
         distances = Chem.GetDistanceMatrix(mol)
         atom_matches_chrom, bond_matches_chrom = dm.substructure_matching_bonds(mol, chrom)
@@ -175,7 +175,7 @@ class pKaFilter(BaseFilter):
 
 =======
         return valid_range
-    
+
 >>>>>>> a5ae6be (Renamed and added beginning of smarts proximity filtering):openadmet/toolkit/filtering/physchem_filters.py
     def pka_separation(pkas: list, min_unit_sep: float) -> bool:
         """
