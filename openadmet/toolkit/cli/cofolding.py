@@ -13,13 +13,36 @@ from openadmet.toolkit.cofolding.chai1 import Chai1CoFoldingEngine
     required=False
 )
 @click.option(
+    "--input_csv",
+    type=click.Path(exists=True),
+    default=None,
+    help="Input CSV file containing fasta files and protein names",
+    required=False,
+)
+@click.option(
+    "--fasta_column",
+    type=str,
+    default="fasta",
+    help="Column name in the input CSV file containing fasta files",
+    required=False,
+)
+@click.option(
+    "--protein_name_column",
+    type=str,
+    default="protein_name",
+    help="Column name in the input CSV file containing protein names",
+    required=False,
+)
+@click.option(
     "--fastas",
+    default=None,
     multiple=True,
     help="Fasta file or list of fasta files",
     required=True,
 )
 @click.option(
     "--protein_names",
+    default=None,
     multiple=True,
     help="Protein names, by default None",
 )
@@ -95,6 +118,9 @@ from openadmet.toolkit.cofolding.chai1 import Chai1CoFoldingEngine
 )
 def cofolding(
     model: str,
+    input_csv: str,
+    fasta_column: str,
+    protein_name_column: str,
     fastas: list[str],
     protein_names: list[str],
     output_dir: str,
@@ -111,6 +137,19 @@ def cofolding(
     """
     Run cofolding on the given fasta files and return the paths to the generated cif files
     """
+
+    # Check if input_csv and fastas are provided
+    if input_csv is None and fastas is None:
+        raise ValueError("Either input_csv or fastas must be provided")
+    # Check that only input_csv or fastas is provided
+    if input_csv is not None and fastas is not None:
+        raise ValueError("Cannot provide both input_csv and fastas")
+
+    # Check if input_csv is provided and read the fasta files and protein names from it
+    if input_csv is not None:
+        df = pd.read_csv(input_csv)
+        fastas = df[fasta_column].tolist()
+        protein_names = df[protein_name_column].tolist()
 
     # Check if protein_names and fastas are of the same length
     if protein_names is not None and len(fastas) != len(protein_names):
