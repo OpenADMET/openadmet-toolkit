@@ -170,13 +170,8 @@ class pKaFilter(BaseFilter):
             if self.min_pka <= pka <= self.max_pka:
                 valid_range = True
                 break
-<<<<<<< HEAD:openadmet/toolkit/filtering/filters.py
-        return False
-
-=======
         return valid_range
-
->>>>>>> a5ae6be (Renamed and added beginning of smarts proximity filtering):openadmet/toolkit/filtering/physchem_filters.py
+    
     def pka_separation(pkas: list, min_unit_sep: float) -> bool:
         """
         Check if the pKa values are at least min_unit_sep apart.
