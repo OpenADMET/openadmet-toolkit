@@ -14,9 +14,9 @@ from pydantic import BaseModel, Field
 from openadmet.toolkit.filtering.filter_base import BaseFilter
 
 def min_max_filter(df: pd.DataFrame,
-                   property: str, 
-                   min_threshold: float, 
-                   max_threshold: float, 
+                   property: str,
+                   min_threshold: float,
+                   max_threshold: float,
                    mark_column: str) -> bool:
     """
     Filter a DataFrame based on a property value range.
@@ -47,7 +47,7 @@ def min_max_filter(df: pd.DataFrame,
         df[mark_column] = (df[property] >= min_threshold) & (df[property] <= max_threshold)
     else:
         raise ValueError("Either min_threshold or max_threshold must be provided.")
-    
+
     return df
 
 class SMARTSFilter(BaseFilter):
@@ -56,11 +56,11 @@ class SMARTSFilter(BaseFilter):
 
     """
     smarts: str = Field(description="SMARTS pattern to filter the DataFrame.")
-    
+
     def filter(self, df: pd.DataFrame, mode="mark") -> pd.DataFrame:
         """
         Run the SMARTS filter on the DataFrame.
-        
+
         Parameters
         ----------
         df : pandas.DataFrame
@@ -68,7 +68,7 @@ class SMARTSFilter(BaseFilter):
         mode : str
             Either "mark" or "remove". If "mark", the filter will mark the rows that meet the criteria
             either True or False. If "remove", the filter will remove the rows that meet the criteria.
-        
+
         Returns
         -------
         pandas.DataFrame
@@ -78,9 +78,9 @@ class SMARTSFilter(BaseFilter):
         if "smiles" not in df.columns:
             raise ValueError("The DataFrame must contain a 'smiles' column.")
 
-        
 
-        
+
+
         return df
 
 
@@ -99,11 +99,11 @@ class pKaFilter(BaseFilter):
     min_pka: float = Field(default=3, description="The minimum pKa value for the range check.")
     max_pka: float = Field(default=11, description="The maximum pKa value for the range check.")
     min_unit_sep: float = Field(default=1, description="The minimum unit separation between pKa values.")
-    
+
     def filter(self, df: pd.DataFrame, mode="mark") -> pd.DataFrame:
         """
         Run the pKa filter on the DataFrame.
-        
+
         Parameters
         ----------
         df : pandas.DataFrame
@@ -111,7 +111,7 @@ class pKaFilter(BaseFilter):
         mode : str
             Either "mark" or "remove". If "mark", the filter will mark the rows that meet the criteria
             either True or False. If "remove", the filter will remove the rows that meet the criteria.
-        
+
         Returns
         -------
         pandas.DataFrame
@@ -120,19 +120,19 @@ class pKaFilter(BaseFilter):
         # check if the pka column exists
         if "pka" not in df.columns:
             raise ValueError("The DataFrame must contain a 'pka' column.")
-        
+
         # filter for at least one pka between min_pka and max_pka
 
-        
+
         # filter the pkas to be at least min_unit_sep apart
 
 
         return self.mark_or_remove(df, mode, "pka_filtered")
-    
+
 class logPFilter(BaseFilter):
     """
     Filter class to filter a DataFrame based on logP values.
-    
+
     Parameters
     ----------
     min_logP : float
@@ -142,11 +142,11 @@ class logPFilter(BaseFilter):
     """
     min_logP: float = Field(default=0, description="The minimum logP value for the range check.")
     max_logP: float = Field(default=5, description="The maximum logP value for the range check.")
-    
+
     def filter(self, df: pd.DataFrame, mode="mark") -> pd.DataFrame:
         """
         Run the logP filter on the DataFrame.
-        
+
         Parameters
         ----------
         df : pandas.DataFrame
@@ -154,7 +154,7 @@ class logPFilter(BaseFilter):
         mode : str
             Either "mark" or "remove". If "mark", the filter will mark the rows that meet the criteria
             either True or False. If "remove", the filter will remove the rows that meet the criteria.
-        
+
         Returns
         -------
         pandas.DataFrame
@@ -163,7 +163,7 @@ class logPFilter(BaseFilter):
         # check if the logP column exists
         if "logP" not in df.columns:
             raise ValueError("The DataFrame must contain a 'logP' column.")
-        
+
         # filter for logP values between min_logP and max_logP
         df = min_max_filter(df, "logP", self.min_logP, self.max_logP, "logP_filtered")
 

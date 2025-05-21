@@ -9,7 +9,7 @@ class BaseFilter(BaseModel):
     def filter(self, df: pd.DataFrame, mode="mark") -> pd.DataFrame:
         """
         Abstract method to filter a DataFrame based on specific criteria.
-        
+
         Parameters
         ----------
         df : pandas.DataFrame
@@ -18,7 +18,7 @@ class BaseFilter(BaseModel):
             Either "mark" or "remove". If "mark", the filter will mark the rows that meet the criteria
             either True or False.
             If "remove", the filter will remove the rows that meet the criteria. Default is "mark".
-        
+
         Returns
         -------
         pandas.DataFrame
@@ -29,14 +29,14 @@ class BaseFilter(BaseModel):
     def mark_or_remove(df: pd.DataFrame, mode:str, mark_columns = None) -> pd.DataFrame:
         """
         Remove rows from a DataFrame that are marked as True in a specified column.
-        
+
         Parameters
         ----------
         df : pandas.DataFrame
             The input DataFrame to be filtered.
         mark_columns : str
             The name of the column containing the boolean marks.
-        
+
         Returns
         -------
         pandas.DataFrame
