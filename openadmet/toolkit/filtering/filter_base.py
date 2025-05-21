@@ -1,6 +1,43 @@
 import pandas as pd
 from pydantic import BaseModel, Field
 
+def min_max_filter(df: pd.DataFrame,
+                   property: str,
+                   min_threshold: float,
+                   max_threshold: float,
+                   mark_column: str) -> bool:
+    """
+    Filter a DataFrame based on a property value range.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The input DataFrame containing the data to filter.
+    property : str
+        The name of the column in the DataFrame representing the property to filter on.
+    min_threshold : float
+        The minimum value of the property.
+    max_threshold : float
+        The maximum value of the property.
+    mark_column : str
+        The name of the column to store the boolean marks (True/False).
+
+    Returns
+    -------
+    pandas.DataFrame
+        A DataFrame containing only rows where the property values are within the specified range.
+    """
+    if min_threshold is not None and max_threshold is None:
+        df[mark_column] = df[property] >= min_threshold
+    elif max_threshold is not None and min_threshold is None:
+        df[mark_column] = df[property] <= max_threshold
+    elif min_threshold is not None and max_threshold is not None:
+        df[mark_column] = (df[property] >= min_threshold) & (df[property] <= max_threshold)
+    else:
+        raise ValueError("Either min_threshold or max_threshold must be provided.")
+
+    return df
+
 class BaseFilter(BaseModel):
     """
     Base class for filtering chemical data based on various properties.

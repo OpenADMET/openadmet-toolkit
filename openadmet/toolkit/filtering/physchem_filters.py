@@ -13,44 +13,7 @@ tqdm.pandas()
 import datamol as dm
 
 from pydantic import BaseModel, Field, Path
-from openadmet.toolkit.filtering.filter_base import BaseFilter
-
-def min_max_filter(df: pd.DataFrame,
-                   property: str,
-                   min_threshold: float,
-                   max_threshold: float,
-                   mark_column: str) -> bool:
-    """
-    Filter a DataFrame based on a property value range.
-
-    Parameters
-    ----------
-    df : pandas.DataFrame
-        The input DataFrame containing the data to filter.
-    property : str
-        The name of the column in the DataFrame representing the property to filter on.
-    min_threshold : float
-        The minimum value of the property.
-    max_threshold : float
-        The maximum value of the property.
-    mark_column : str
-        The name of the column to store the boolean marks (True/False).
-
-    Returns
-    -------
-    pandas.DataFrame
-        A DataFrame containing only rows where the property values are within the specified range.
-    """
-    if min_threshold is not None and max_threshold is None:
-        df[mark_column] = df[property] >= min_threshold
-    elif max_threshold is not None and min_threshold is None:
-        df[mark_column] = df[property] <= max_threshold
-    elif min_threshold is not None and max_threshold is not None:
-        df[mark_column] = (df[property] >= min_threshold) & (df[property] <= max_threshold)
-    else:
-        raise ValueError("Either min_threshold or max_threshold must be provided.")
-
-    return df
+from openadmet.toolkit.filtering.filter_base import BaseFilter, min_max_filter
 
 class SMARTSFilter(BaseFilter):
     """
@@ -96,6 +59,50 @@ class SMARTSFilter(BaseFilter):
         )
 
         return self.mark_or_remove(df, mode, self.mark_column)
+
+class SMARTSProximityFilter(BaseFilter):
+    """
+    Filter class to filter two sites in a molecule based on their proximity.
+    """
+    def filter(self, df: pd.DataFrame, mode="mark") -> pd.DataFrame:
+        """
+        Run the SMARTS proximity filter on the DataFrame.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            The input DataFrame to be filtered. 
+        mode : str
+            Either "mark" or "remove". If "mark", the filter will mark the rows that meet the criteria
+            either True or False. If "remove", the filter will remove the rows that meet the criteria.
+
+        Returns
+        -------
+        pandas.DataFrame
+            The filtered DataFrame.
+        """
+        #TODO: figure out how to treat the sites
+
+        return self.mark_or_remove(df, mode, "proximity")
+    
+    def get_match_min_dists(self, distances, chrom_inds, prot_ind):
+        sub_dist_mat = distances[chrom_inds][:,prot_ind]
+        return(sub_dist_mat.min())
+    
+    def get_min_dists(self, mol, chrom, prot_sites):
+        distances = Chem.GetDistanceMatrix(mol)
+        atom_matches_chrom, bond_matches_chrom = dm.substructure_matching_bonds(mol, chrom)
+        min_dists = []
+        if not atom_matches_chrom:
+            return pd.NA
+        for site in prot_sites:
+            atom_matches_prot, bond_matches_prot = dm.substructure_matching_bonds(mol, site)
+            if not atom_matches_prot:
+                continue
+            for prot_match in atom_matches_prot:
+                for chrom_match in atom_matches_chrom:
+                    min_dists.append(self.get_match_min_dists(distances, list(chrom_match), list(prot_match)))
+        return(min_dists)
 
 class pKaFilter(BaseFilter):
     """
@@ -163,8 +170,13 @@ class pKaFilter(BaseFilter):
             if self.min_pka <= pka <= self.max_pka:
                 valid_range = True
                 break
+<<<<<<< HEAD:openadmet/toolkit/filtering/filters.py
         return False
 
+=======
+        return valid_range
+    
+>>>>>>> a5ae6be (Renamed and added beginning of smarts proximity filtering):openadmet/toolkit/filtering/physchem_filters.py
     def pka_separation(pkas: list, min_unit_sep: float) -> bool:
         """
         Check if the pKa values are at least min_unit_sep apart.
