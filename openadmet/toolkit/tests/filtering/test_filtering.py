@@ -71,3 +71,13 @@ def test_mark_or_remove(clogp_data):
     # Test invalid mode
     with pytest.raises(ValueError):
         mark_or_remove(clogp_data, mode="invalid_mode", mark_columns="test_mark")
+
+def test_smarts_filter(test_data):
+    # Test SMARTS filter
+    smarts_filter = SMARTSFilter(
+        smarts="C(=O)N",
+        filter_name="amide_filter",
+        filter_type="exclude"
+    )
+    filtered_df = smarts_filter.filter(test_data, mode="mark")
+    assert len(filtered_df) == 0
