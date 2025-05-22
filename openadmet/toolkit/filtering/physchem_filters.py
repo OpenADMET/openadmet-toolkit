@@ -146,13 +146,13 @@ class pKaFilter(BaseFilter):
 
         if self.min_pka and self.max_pka:
             # filter for at least one pka between min_pka and max_pka
-            df["in_range"] = df["pka"].apply(lambda x: self.pkas_valid_range(x))
+            df["pka_in_range"] = df["pka"].apply(lambda x: self.pkas_valid_range(x))
 
         if self.min_unit_sep:
             # filter for pka values that are at least min_unit_sep apart
-            df["unit_sep"] = df["pka"].apply(lambda x : self.pka_separation(x, self.min_unit_sep))
+            df["pka_unit_sep"] = df["pka"].apply(lambda x : self.pka_separation(x, self.min_unit_sep))
 
-        return mark_or_remove(df, mode, ["in_range", "unit_sep"])
+        return mark_or_remove(df, mode, ["pka_in_range", "pka_unit_sep"])
 
     def pkas_valid_range(self, pkas: list) -> bool:
         """
@@ -175,7 +175,7 @@ class pKaFilter(BaseFilter):
                 break
         return valid_range
 
-    def pka_separation(pkas: list, min_unit_sep: float) -> bool:
+    def pka_separation(self, pkas: list, min_unit_sep: float) -> bool:
         """
         Check if the pKa values are at least min_unit_sep apart.
 
@@ -193,7 +193,7 @@ class pKaFilter(BaseFilter):
         """
         for i in range(len(pkas)):
             for j in range(i + 1, len(pkas)):
-                if abs(pkas[i] - pkas[j]) < 1:
+                if abs(pkas[i] - pkas[j]) < min_unit_sep:
                     return False
         return True
 
@@ -211,7 +211,7 @@ class logPFilter(BaseFilter):
     min_logP: float = Field(default=0, description="The minimum logP value for the range check.")
     max_logP: float = Field(default=5, description="The maximum logP value for the range check.")
 
-    def filter(self, df: pd.DataFrame, mode="mark") -> pd.DataFrame:
+    def filter(self, df: pd.DataFrame, logp_column="logp", mode="mark") -> pd.DataFrame:
         """
         Run the logP filter on the DataFrame.
 
@@ -228,14 +228,10 @@ class logPFilter(BaseFilter):
         pandas.DataFrame
             The filtered DataFrame.
         """
-        if "logp" in df.columns:
-            col = "logp"
-        elif "clogp" in df.columns:
-            col = "clogp"
-        else:
-            raise ValueError("The DataFrame must contain a 'logp' or 'clogp' column.")
+        if logp_column not in df.columns:
+            raise ValueError(f"The DataFrame must contain a {logp_column} column.")
 
         # filter for logP values between min_logP and max_logP
-        df = min_max_filter(df, col, self.min_logP, self.max_logP, "logp_filtered")
+        df = min_max_filter(df, logp_column, self.min_logP, self.max_logP, "logp_filtered")
 
         return mark_or_remove(df, mode, "logp_filtered")
