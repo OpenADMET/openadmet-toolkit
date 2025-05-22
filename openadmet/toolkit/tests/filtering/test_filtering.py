@@ -94,4 +94,4 @@ def test_logp_filter(clogp_data):
     filtered_df = logp_filter.filter(clogp_data, mode="mark")
     assert list(filtered_df["logp_filtered"]) == [False, True, True, False, False]
 
-    
+
