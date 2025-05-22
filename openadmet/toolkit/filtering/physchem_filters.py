@@ -218,7 +218,7 @@ class logPFilter(BaseFilter):
         Parameters
         ----------
         df : pandas.DataFrame
-            The input DataFrame to be filtered.
+            The input DataFrame to be filtered.  Must contain a 'logp' or 'clogp' column.
         mode : str
             Either "mark" or "remove". If "mark", the filter will mark the rows that meet the criteria
             either True or False. If "remove", the filter will remove the rows that meet the criteria.
@@ -228,11 +228,14 @@ class logPFilter(BaseFilter):
         pandas.DataFrame
             The filtered DataFrame.
         """
-        # check if the logP column exists
-        if "logP" not in df.columns:
-            raise ValueError("The DataFrame must contain a 'logP' column.")
+        if "logp" in df.columns:
+            col = "logp"
+        elif "clogp" in df.columns:
+            col = "clogp"
+        else:
+            raise ValueError("The DataFrame must contain a 'logp' or 'clogp' column.")
 
         # filter for logP values between min_logP and max_logP
-        df = min_max_filter(df, "logP", self.min_logP, self.max_logP, "logP_filtered")
+        df = min_max_filter(df, col, self.min_logP, self.max_logP, "logp_filtered")
 
-        return mark_or_remove(df, mode, "logP_filtered")
+        return mark_or_remove(df, mode, "logp_filtered")

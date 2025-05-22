@@ -84,3 +84,14 @@ def test_smarts_filter(test_data):
     )
     filtered_df = smarts_filter.filter(test_data, mode="mark")
     assert list(filtered_df["smarts_filtered"]) == [False, False, True, True, False]
+
+def test_logp_filter(clogp_data):
+    # Test logP filter
+    logp_filter = logPFilter(
+        min_logp=-1.0,
+        max_logp=6.0,
+    )
+    filtered_df = logp_filter.filter(clogp_data, mode="mark")
+    assert list(filtered_df["logp_filtered"]) == [False, True, True, False, False]
+
+    
