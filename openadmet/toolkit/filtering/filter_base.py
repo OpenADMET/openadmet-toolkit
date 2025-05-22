@@ -1,5 +1,6 @@
 import pandas as pd
 from pydantic import BaseModel, Field
+from abc import ABC, abstractmethod
 
 def min_max_filter(df: pd.DataFrame,
                    property: str,
@@ -38,6 +39,33 @@ def min_max_filter(df: pd.DataFrame,
 
     return df
 
+def mark_or_remove(df: pd.DataFrame, mode:str, mark_columns = None) -> pd.DataFrame:
+    """
+    Remove rows from a DataFrame that are marked as True in a specified column.
+
+    Parameters
+    ----------
+    df : pandas.DataFrame
+        The input DataFrame to be filtered.
+    mark_columns : str
+        The name of the column containing the boolean marks.
+
+    Returns
+    -------
+    pandas.DataFrame
+        The filtered DataFrame with marked rows removed.
+    """
+    if isinstance(mark_columns, str):
+        mark_columns = [mark_columns]
+    if mode == "remove":
+        for mark_col in mark_columns:
+            if mark_col not in df.columns:
+                raise ValueError(f"Column {mark_col} not found in DataFrame.")
+            df = df[df[mark_col] == False].drop(columns=[mark_col])
+    elif mode != "mark":
+        raise ValueError("mode must be either 'mark' or 'remove'")
+    return df
+
 class BaseFilter(BaseModel):
     """
     Base class for filtering chemical data based on various properties.
@@ -62,30 +90,3 @@ class BaseFilter(BaseModel):
             The filtered DataFrame.
         """
         pass
-
-    def mark_or_remove(df: pd.DataFrame, mode:str, mark_columns = None) -> pd.DataFrame:
-        """
-        Remove rows from a DataFrame that are marked as True in a specified column.
-
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            The input DataFrame to be filtered.
-        mark_columns : str
-            The name of the column containing the boolean marks.
-
-        Returns
-        -------
-        pandas.DataFrame
-            The filtered DataFrame with marked rows removed.
-        """
-        if isinstance(mark_columns, str):
-            mark_columns = [mark_columns]
-        if mode == "remove":
-            for mark_col in mark_columns:
-                if mark_col not in df.columns:
-                    raise ValueError(f"Column {mark_col} not found in DataFrame.")
-                df = df[df[mark_col] == False].drop(columns=[mark_col])
-        elif mode != "mark":
-            raise ValueError("mode must be either 'mark' or 'remove'")
-        return df

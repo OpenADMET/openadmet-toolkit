@@ -12,7 +12,7 @@ tqdm.pandas()
 
 import datamol as dm
 
-from pydantic import BaseModel, Field, Path
+from pydantic import BaseModel, Field
 from openadmet.toolkit.filtering.filter_base import BaseFilter, min_max_filter
 
 class SMARTSFilter(BaseFilter):
@@ -20,7 +20,7 @@ class SMARTSFilter(BaseFilter):
     Filter class to filter a DataFrame based on SMARTS patterns.
 
     """
-    smarts: Path = Field(description="CSV file of SMARTS patterns to filter the DataFrame.")
+    smarts: str = Field(description="CSV file of SMARTS patterns to filter the DataFrame.")
     smarts_column: str = Field(default="smarts", description="Column name in the CSV file containing SMARTS patterns.")
     names_column: str = Field(default="name", description="Column name in the CSV file containing names for the SMARTS patterns.")
     mark_column: str = Field(default="smarts_filtered", description="Column name to store the boolean marks (True/False).")
