@@ -22,7 +22,8 @@ def clogp_data():
 
 @pytest.fixture()
 def test_data():
-    return filtering_file
+    filtering_df = pd.read_csv(filtering_file)
+    return filtering_df
 
 def test_min_max_filter(clogp_data):
     min_threshold = -1.0
@@ -73,11 +74,13 @@ def test_mark_or_remove(clogp_data):
         mark_or_remove(clogp_data, mode="invalid_mode", mark_columns="test_mark")
 
 def test_smarts_filter(test_data):
-    # Test SMARTS filter
+    # Test SMARTS filter positive
+    smarts_df = pd.DataFrame({
+        "smarts": ["Br"],
+        "name": ["Bromine"],
+    })
     smarts_filter = SMARTSFilter(
-        smarts="C(=O)N",
-        filter_name="amide_filter",
-        filter_type="exclude"
+        smarts_df=smarts_df,
     )
     filtered_df = smarts_filter.filter(test_data, mode="mark")
-    assert len(filtered_df) == 0
+    assert list(filtered_df["smarts_filtered"]) == [False, False, True, True, False]

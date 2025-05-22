@@ -13,19 +13,19 @@ tqdm.pandas()
 import datamol as dm
 
 from pydantic import BaseModel, Field
-from openadmet.toolkit.filtering.filter_base import BaseFilter, min_max_filter
+from openadmet.toolkit.filtering.filter_base import BaseFilter, min_max_filter, mark_or_remove
 
 class SMARTSFilter(BaseFilter):
     """
     Filter class to filter a DataFrame based on SMARTS patterns.
 
     """
-    smarts: str = Field(description="CSV file of SMARTS patterns to filter the DataFrame.")
-    smarts_column: str = Field(default="smarts", description="Column name in the CSV file containing SMARTS patterns.")
-    names_column: str = Field(default="name", description="Column name in the CSV file containing names for the SMARTS patterns.")
+    smarts_df: pd.DataFrame = Field(description="DataFrame of SMARTS patterns to filter the smiles DataFrame.")
+    smarts_column: str = Field(default="smarts", description="Column name in the DataFrame file containing SMARTS patterns.")
+    names_column: str = Field(default="name", description="Column name in the DataFrame file containing names for the SMARTS patterns.")
     mark_column: str = Field(default="smarts_filtered", description="Column name to store the boolean marks (True/False).")
 
-    def filter(self, df: pd.DataFrame, mode="mark") -> pd.DataFrame:
+    def filter(self, df: pd.DataFrame, mode:str="mark", mol_col:str="mol") -> pd.DataFrame:
         """
         Run the SMARTS filter on the DataFrame.
 
@@ -43,22 +43,25 @@ class SMARTSFilter(BaseFilter):
             The filtered DataFrame.
         """
         # check if the smiles column exists
-        if "smiles" not in df.columns:
-            raise ValueError("The DataFrame must contain a 'smiles' column.")
+        if "canonical_smiles" not in df.columns:
+            raise ValueError("The DataFrame must contain a 'canonical_smiles' column.")
 
-        smarts_df = pd.read_csv(self.smarts)
-        smarts_list = smarts_df[self.smarts_column].tolist()
-        names_list = smarts_df[self.names_column].tolist()
+        df["mol"] = df["canonical_smiles"].apply(
+            lambda x: Chem.MolFromSmiles(x)
+            )
+
+        smarts_list = self.smarts_df[self.smarts_column].tolist()
+        names_list = self.smarts_df[self.names_column].tolist()
 
         custom_catalog = catalog_from_smarts(smarts = smarts_list,
                                              labels = names_list,
                                              entry_as_inds = False,)
 
-        df[self.mark_column] = df["smiles"].progress_apply(
+        df[self.mark_column] = df["mol"].apply(
             lambda x: custom_catalog.HasMatch(x)
         )
 
-        return self.mark_or_remove(df, mode, self.mark_column)
+        return mark_or_remove(df, mode, self.mark_column)
 
 class SMARTSProximityFilter(BaseFilter):
     """
@@ -83,7 +86,7 @@ class SMARTSProximityFilter(BaseFilter):
         """
         #TODO: figure out how to treat the sites
 
-        return self.mark_or_remove(df, mode, "proximity")
+        return mark_or_remove(df, mode, "proximity")
 
     def get_match_min_dists(self, distances, chrom_inds, prot_ind):
         sub_dist_mat = distances[chrom_inds][:,prot_ind]
@@ -149,7 +152,7 @@ class pKaFilter(BaseFilter):
             # filter for pka values that are at least min_unit_sep apart
             df["unit_sep"] = df["pka"].apply(lambda x : self.pka_separation(x, self.min_unit_sep))
 
-        return self.mark_or_remove(df, mode, ["in_range", "unit_sep"])
+        return mark_or_remove(df, mode, ["in_range", "unit_sep"])
 
     def pkas_valid_range(self, pkas: list) -> bool:
         """
@@ -232,4 +235,4 @@ class logPFilter(BaseFilter):
         # filter for logP values between min_logP and max_logP
         df = min_max_filter(df, "logP", self.min_logP, self.max_logP, "logP_filtered")
 
-        return self.mark_or_remove(df, mode, "logP_filtered")
+        return mark_or_remove(df, mode, "logP_filtered")

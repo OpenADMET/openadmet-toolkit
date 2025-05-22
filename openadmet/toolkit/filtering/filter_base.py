@@ -70,8 +70,11 @@ class BaseFilter(BaseModel):
     """
     Base class for filtering chemical data based on various properties.
     """
+    class Config:
+        arbitrary_types_allowed = True
+
     @abstractmethod
-    def filter(self, df: pd.DataFrame, mode="mark") -> pd.DataFrame:
+    def filter(self, df: pd.DataFrame, mode:str="mark") -> pd.DataFrame:
         """
         Abstract method to filter a DataFrame based on specific criteria.
 
