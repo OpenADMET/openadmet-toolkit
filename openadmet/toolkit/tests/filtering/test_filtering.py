@@ -71,4 +71,3 @@ def test_mark_or_remove(clogp_data):
     # Test invalid mode
     with pytest.raises(ValueError):
         mark_or_remove(clogp_data, mode="invalid_mode", mark_columns="test_mark")
-
