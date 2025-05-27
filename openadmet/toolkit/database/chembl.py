@@ -98,8 +98,8 @@ class ChEMBLDatabaseConnector(BaseModel):
         self.connection.sql(sql)
 
 
-class ChEMBLTargetCuratorBase(BaseModel):
-    chembl_target_id: str = Field(..., description="ChEMBL target ID.")
+
+class ChEMBLCuratorBase(BaseModel):
     chembl_version: int = Field(34, description="Version of the ChEMBL database.")
     _chembl_connector: Optional[ChEMBLDatabaseConnector] = None
 
@@ -108,6 +108,13 @@ class ChEMBLTargetCuratorBase(BaseModel):
         self._chembl_connector = ChEMBLDatabaseConnector.create_chembl_database(
             version=self.chembl_version
         )
+
+
+class ChEMBLTargetCuratorBase(ChEMBLCuratorBase):
+    """
+    Base class for ChEMBL target curators, must have a ChEMBL target ID
+    """
+    chembl_target_id: str = Field(..., description="ChEMBL target ID.")
 
     @abc.abstractmethod
     def get_activity_data(
@@ -545,3 +552,142 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         group by (variant_id, tid, description, target_chembl_id, assay_id, assay_chembl_id) \
         """
         return self._chembl_connector.query(query, return_as=return_as)
+
+
+
+class MICChEMBLCurator(ChEMBLCuratorBase):
+    any_organism: bool = Field(
+        False,
+        description="If True, will not filter by organism and will return all targets regardless of organism.",
+    )
+    organism: Optional[str] = Field(None, description="Organism to filter the target data by.")
+
+    include_out_of_range: bool = Field(
+        False,
+        description="If True, will include activities with out of range values (e.g. > 10000 nM).",
+    )
+ 
+ 
+    def get_activity_data(
+        self, return_as: str = "df"
+    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
+        """
+        """
+        query = f"""
+        select
+        activities.assay_id                  as assay_id,
+        activities.doc_id                    as doc_id,
+        activities.standard_value            as standard_value,
+        activities.standard_relation         as standard_relation,
+        activities.standard_type             as standard_type,
+        activities.standard_units            as standard_units,
+        molecule_hierarchy.parent_molregno   as molregno,
+        compound_structures.canonical_smiles as canonical_smiles,
+        compound_structures.standard_inchi_key as standard_inchi_key,
+        target_dictionary.tid                as tid,
+        target_dictionary.chembl_id          as target_chembl_id,
+        pchembl_value                        as pchembl_value,
+        molecule_dictionary.pref_name        as compound_name,
+        activities.standard_type             as standard_type,
+        activities.bao_endpoint              as bao_endpoint,
+        assays.description                   as assay_description,
+        assays.assay_organism                as assay_organism,
+        assays.assay_strain                  as assay_strain,
+        assays.assay_tissue                  as assay_tissue,
+        assays.assay_type                    as assay_type,
+        assays.assay_cell_type               as assay_cell_type,
+        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+        assays.variant_id                    as variant_id,
+        assays.confidence_score             as confidence_score,
+        docs.year                            as doc_year,
+        docs.journal                         as doc_journal,
+        docs.doi                             as doc_doi,
+        docs.title                           as doc_title,
+        docs.authors                         as doc_authors,
+        docs.abstract                        as doc_abstract,
+        docs.patent_id                       as doc_patent_id,
+        docs.pubmed_id                       as doc_pubmed_id,
+        docs.chembl_release_id               as doc_chembl_release_id
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join docs ON activities.doc_id = docs.doc_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where activities.standard_type = 'MIC' and
+        target_dictionary.target_type = 'ORGANISM'
+        """
+
+
+
+        if not self.include_out_of_range:
+            query += "and activities.standard_relation = '='\n"
+
+        if not self.any_organism:
+            if not self.organism:
+                raise ValueError("Organism must be specified if any_organism is False.")
+            query += f"and assays.assay_organism = '{self.organism}'\n"
+
+        return self._chembl_connector.query(query, return_as=return_as)
+
+
+
+
+class HepatotoxicityChEMBLCurator(ChEMBLCuratorBase):
+
+
+    def get_activity_data(
+        self, return_as: str = "df"
+    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
+        """
+        """
+        query = f"""
+        select
+        activities.assay_id                  as assay_id,
+        activities.doc_id                    as doc_id,
+        activities.standard_value            as standard_value,
+        activities.standard_relation         as standard_relation,
+        activities.standard_type             as standard_type,
+        activities.standard_units            as standard_units,
+        activities.activity_comment         as activity_comment,
+        molecule_hierarchy.parent_molregno   as molregno,
+        compound_structures.canonical_smiles as canonical_smiles,
+        compound_structures.standard_inchi_key as standard_inchi_key,
+        target_dictionary.tid                as tid,
+        target_dictionary.chembl_id          as target_chembl_id,
+        pchembl_value                        as pchembl_value,
+        molecule_dictionary.pref_name        as compound_name,
+        activities.standard_type             as standard_type,
+        activities.bao_endpoint              as bao_endpoint,
+        assays.description                   as assay_description,
+        assays.assay_organism                as assay_organism,
+        assays.assay_strain                  as assay_strain,
+        assays.assay_tissue                  as assay_tissue,
+        assays.assay_type                    as assay_type,
+        assays.assay_cell_type               as assay_cell_type,
+        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+        assays.variant_id                    as variant_id,
+        assays.confidence_score             as confidence_score,
+        docs.year                            as doc_year,
+        docs.journal                         as doc_journal,
+        docs.doi                             as doc_doi,
+        docs.title                           as doc_title,
+        docs.authors                         as doc_authors,
+        docs.abstract                        as doc_abstract,
+        docs.patent_id                       as doc_patent_id,
+        docs.pubmed_id                       as doc_pubmed_id,
+        docs.chembl_release_id               as doc_chembl_release_id
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join docs ON activities.doc_id = docs.doc_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where activities.standard_type = 'Hepatotoxicity' and
+        target_dictionary.target_type = 'PHENOTYPE'
+        """
+
+        return self._chembl_connector.query(query, return_as=return_as)
+
