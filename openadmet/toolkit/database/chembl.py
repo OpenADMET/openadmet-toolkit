@@ -685,7 +685,7 @@ class HepatotoxicityChEMBLCurator(ChEMBLCuratorBase):
         join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
-        where activities.standard_type = 'Hepatotoxicity' and
+        where activities.standard_type like '%Hepatotoxicity%' and
         target_dictionary.target_type = 'PHENOTYPE'
         """
 
