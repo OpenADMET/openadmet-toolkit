@@ -566,8 +566,8 @@ class MICChEMBLCurator(ChEMBLCuratorBase):
         False,
         description="If True, will include activities with out of range values (e.g. > 10000 nM).",
     )
- 
- 
+
+
     def get_activity_data(
         self, return_as: str = "df"
     ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
@@ -690,4 +690,3 @@ class HepatotoxicityChEMBLCurator(ChEMBLCuratorBase):
         """
 
         return self._chembl_connector.query(query, return_as=return_as)
-
