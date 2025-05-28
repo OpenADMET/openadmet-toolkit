@@ -208,7 +208,7 @@ class DatamolFilter(BaseFilter):
     name_options: list = ['mw','fsp3','n_hba','n_hbd','n_rings','n_hetero_atoms','n_heavy_atoms',
                           'n_rotatable_bonds','n_aliphatic_rings','n_aromatic_rings','n_saturated_rings',
                           'n_radical_electrons','tpsa','qed','clogp','sas']
-    
+
     def __post_init__(self):
         if self.name not in self.name_options:
             raise ValueError(f"Descriptor name must be one of {self.name_options}.")
@@ -218,7 +218,7 @@ class DatamolFilter(BaseFilter):
 
         if cls.name not in df.columns:
             raise ValueError(f"The DataFrame must contain a '{cls.name}' column.")
-        
+
         df = min_max_filter(
             df=df,
             property=cls.name,
