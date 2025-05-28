@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from openadmet.toolkit.chemoinformatics.rdkit_funcs import canonical_smiles
+from openadmet.toolkit.chemoinformatics.rdkit_funcs import OPENADMET_CANONICAL_SMILES
 from medchem.catalogs import catalog_from_smarts
 
 from rdkit.Chem.MolStandardize import rdMolStandardize
@@ -23,9 +23,10 @@ class SMARTSFilter(BaseFilter):
     smarts_df: pd.DataFrame = Field(description="DataFrame of SMARTS patterns to filter the smiles DataFrame.")
     smarts_column: str = Field(default="smarts", description="Column name in the DataFrame file containing SMARTS patterns.")
     names_column: str = Field(default="name", description="Column name in the DataFrame file containing names for the SMARTS patterns.")
-    mark_column: str = Field(default="smarts_filtered", description="Column name to store the boolean marks (True/False).")
+    mark_column: str = Field(default="smarts_filtered", description="Column name to store the boolean marks (True/False)."))
 
-    def filter(self, df: pd.DataFrame, mode:str="mark", mol_col:str="mol") -> pd.DataFrame:
+    @classmethod
+    def filter(cls, df: pd.DataFrame, mode:str="mark", mol_col:str="mol") -> pd.DataFrame:
         """
         Run the SMARTS filter on the DataFrame.
 
@@ -43,10 +44,12 @@ class SMARTSFilter(BaseFilter):
             The filtered DataFrame.
         """
         # check if the smiles column exists
-        if "canonical_smiles" not in df.columns:
-            raise ValueError("The DataFrame must contain a 'canonical_smiles' column.")
+        #TODO: OPENADMET_OPENADMET_CANONICAL_SMILES
+        #TODO: also make this be able to do .apply to a dataframe
+        if "OPENADMET_CANONICAL_SMILES" not in df.columns:
+            raise ValueError("The DataFrame must contain a 'OPENADMET_CANONICAL_SMILES' column.")
 
-        df["mol"] = df["canonical_smiles"].apply(
+        df["mol"] = df["OPENADMET_CANONICAL_SMILES"].apply(
             lambda x: Chem.MolFromSmiles(x)
             )
 
@@ -94,12 +97,12 @@ class SMARTSProximityFilter(BaseFilter):
 
     def get_min_dists(self, mol, chrom, prot_sites):
         distances = Chem.GetDistanceMatrix(mol)
-        atom_matches_chrom, bond_matches_chrom = dm.substructure_matching_bonds(mol, chrom)
+        atom_matches_chrom, _ = dm.substructure_matching_bonds(mol, chrom)
         min_dists = []
         if not atom_matches_chrom:
             return pd.NA
         for site in prot_sites:
-            atom_matches_prot, bond_matches_prot = dm.substructure_matching_bonds(mol, site)
+            atom_matches_prot, _ = dm.substructure_matching_bonds(mol, site)
             if not atom_matches_prot:
                 continue
             for prot_match in atom_matches_prot:
@@ -197,41 +200,56 @@ class pKaFilter(BaseFilter):
                     return False
         return True
 
-class logPFilter(BaseFilter):
-    """
-    Filter class to filter a DataFrame based on logP values.
+class DatamolFilter(BaseFilter):
 
-    Parameters
-    ----------
-    min_logP : float
-        The minimum logP value for the range check (default is 0).
-    max_logP : float
-        The maximum logP value for the range check (default is 5).
-    """
-    min_logP: float = Field(default=0, description="The minimum logP value for the range check.")
-    max_logP: float = Field(default=5, description="The maximum logP value for the range check.")
+    name: str = Field(description="Descriptor name to filter on.")
+    min_value: float = Field(description="Minimum descriptor value for the filter.")
+    max_value: float = Field(description="Maximum descriptor value for the filter.")
+    name_options: list = ['mw','fsp3','n_hba','n_hbd','n_rings','n_hetero_atoms','n_heavy_atoms',
+                          'n_rotatable_bonds','n_aliphatic_rings','n_aromatic_rings','n_saturated_rings',
+                          'n_radical_electrons','tpsa','qed','clogp','sas']
+    
+    def __post_init__(self):
+        if self.name not in self.name_options:
+            raise ValueError(f"Descriptor name must be one of {self.name_options}.")
 
-    def filter(self, df: pd.DataFrame, logp_column="logp", mode="mark") -> pd.DataFrame:
+    @classmethod
+    def filter(cls, df: pd.DataFrame, mode="mark") -> pd.DataFrame:
+
+        if cls.name not in df.columns:
+            raise ValueError(f"The DataFrame must contain a '{cls.name}' column.")
+        
+        df = min_max_filter(
+            df=df,
+            property=cls.name,
+            min_threshold=cls.min_value,
+            max_threshold=cls.max_value,
+            mark_column=f"{cls.name}_filtered"
+        )
+
+        return mark_or_remove(df, mode, f"{cls.name}_filtered")
+
+    @classmethod
+    def calculate(cls, df: pd.DataFrame, smiles_column: str = OPENADMET_CANONICAL_SMILES) -> pd.DataFrame:
         """
-        Run the logP filter on the DataFrame.
+        Calculate the descriptor values for the DataFrame.
 
         Parameters
         ----------
         df : pandas.DataFrame
-            The input DataFrame to be filtered.  Must contain a 'logp' or 'clogp' column.
-        mode : str
-            Either "mark" or "remove". If "mark", the filter will mark the rows that meet the criteria
-            either True or False. If "remove", the filter will remove the rows that meet the criteria.
+            The input DataFrame to calculate descriptor values for.
+        smiles_column : str
+            The column name containing SMILES strings (default is 'OPENADMET_CANONICAL_SMILES').
 
         Returns
         -------
         pandas.DataFrame
-            The filtered DataFrame.
+            The DataFrame with calculated descriptor values.
         """
-        if logp_column not in df.columns:
-            raise ValueError(f"The DataFrame must contain a {logp_column} column.")
 
-        # filter for logP values between min_logP and max_logP
-        df = min_max_filter(df, logp_column, self.min_logP, self.max_logP, "logp_filtered")
+        if smiles_column not in df.columns:
+            raise ValueError(f"The DataFrame must contain a '{smiles_column}' column.")
 
-        return mark_or_remove(df, mode, "logp_filtered")
+        df[cls.name] = df[smiles_column].apply(lambda x: dm.descriptors.eval(cls.name)(x))
+
+        return df
