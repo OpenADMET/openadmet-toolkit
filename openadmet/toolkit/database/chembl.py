@@ -625,7 +625,7 @@ class SemiQuantChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         join docs ON activities.doc_id = docs.doc_id
-        
+
         where activities.standard_units = 'nM' and
         activities.data_validity_comment IS null and
         activities.potential_duplicate = 0 and
