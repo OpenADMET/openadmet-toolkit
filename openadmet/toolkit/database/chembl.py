@@ -560,10 +560,6 @@ class SemiQuantChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         None,
         description="Select a single Standard type of the ChEMBL data (IC50, Ki, Kd, EC50, Potency).",
     )
-    extra_filter: Optional[str] = Field(
-        None,
-        description="Extra filters to apply to the query, single word OR matching against assay description.",
-    )
 
     @field_validator("standard_type")
     def check_in_allowed_standard_types(cls, value):
@@ -629,9 +625,14 @@ class SemiQuantChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         where activities.standard_units = 'nM' and
         activities.data_validity_comment IS null and
         activities.potential_duplicate = 0 and
-        activities.standard_type IN ('IC50', 'XC50', 'EC50', 'AC50', 'Ki', 'Kd', 'Potency') and
         target_chembl_id = '{self.chembl_target_id}'
         """
+
+        if self.standard_type:
+            query += f"and activities.standard_type IN ('{self.standard_type}')"
+        else:
+            query += "and activities.standard_type IN ('IC50', 'XC50', 'EC50', 'AC50', 'Ki', 'Kd', 'Potency')"
+
 
         all_data = self._chembl_connector.query(query, return_as="duckdb")
 
@@ -701,35 +702,3 @@ class SemiQuantChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         data.sort_values("assay_id_count", ascending=False, inplace=True)
 
         return data
-
-    def get_variant_ids_for_target(
-        self, return_as: str = "df"
-    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
-        """
-        Get all the variant IDs for a given target using its ChEMBL ID
-        Only target_type = 'SINGLE PROTEIN' curation is applied.
-
-        Parameters
-        ----------
-        return_as: str
-            Return the data as a DataFrame or a DuckDB relation.
-
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame containing the variant IDs for the target
-
-        """
-        query = f"""
-        select distinct(variant_id), tid, description,  targets.chembl_id as target_chembl_id, \
-        assay_id, assays.chembl_id assay_chembl_id \
-        from activities \
-        join assays using(assay_id)  \
-        join docs on (assays.doc_id = docs.doc_id)  \
-        join target_dictionary as targets using (tid) \
-        where target_type = 'SINGLE PROTEIN' \
-        and target_chembl_id = '{self.chembl_target_id}' \
-        and variant_id is not null
-        group by (variant_id, tid, description, target_chembl_id, assay_id, assay_chembl_id) \
-        """
-        return self._chembl_connector.query(query, return_as=return_as)
