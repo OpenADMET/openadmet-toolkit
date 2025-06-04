@@ -1,6 +1,6 @@
 import numpy as np
 import pandas as pd
-from openadmet.toolkit.chemoinformatics.rdkit_funcs import OPENADMET_CANONICAL_SMILES
+from openadmet.toolkit.chemoinformatics.rdkit_funcs import canonical_smiles
 from medchem.catalogs import catalog_from_smarts
 
 from rdkit.Chem.MolStandardize import rdMolStandardize
@@ -14,19 +14,56 @@ import datamol as dm
 
 from pydantic import BaseModel, Field
 from openadmet.toolkit.filtering.filter_base import BaseFilter, min_max_filter, mark_or_remove
+from typing import ClassVar
 
 class SMARTSFilter(BaseFilter):
     """
     Filter class to filter a DataFrame based on SMARTS patterns.
 
     """
-    smarts_df: pd.DataFrame = Field(description="DataFrame of SMARTS patterns to filter the smiles DataFrame.")
-    smarts_column: str = Field(default="smarts", description="Column name in the DataFrame file containing SMARTS patterns.")
-    names_column: str = Field(default="name", description="Column name in the DataFrame file containing names for the SMARTS patterns.")
-    mark_column: str = Field(default="smarts_filtered", description="Column name to store the boolean marks (True/False)."))
+    smarts_list: list
+    names_list: list
 
-    @classmethod
-    def filter(cls, df: pd.DataFrame, mode:str="mark", mol_col:str="mol") -> pd.DataFrame:
+    smarts_column: ClassVar[str] = "smarts"
+    names_column: ClassVar[str] = "name"
+    mark_column: ClassVar[str] = "smarts_filtered"
+
+    def calculate(self, df: pd.DataFrame, smiles_column: str = "OPENADMET_CANONICAL_SMILES", mol_column: str = "mol") -> pd.DataFrame:
+        """
+        Run the SMARTS filter on the DataFrame.
+
+        Parameters
+        ----------
+        df : pandas.DataFrame
+            The input DataFrame to be filtered.
+        smarts_list : list
+            The list of SMARTS patterns to match in the DataFrame.
+        names_list : list
+            The list of names corresponding to the SMARTS patterns.
+        smarts_col : str
+            The column name to write to containing .
+        mol_col : str
+            The column name containing the RDKit Mol objects (default is 'mol').
+
+        Returns
+        -------
+        pandas.DataFrame
+            The DataFrame with .
+        """
+
+        df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
+
+        df[self.smarts_column] = df[mol_column].apply(
+            lambda x: self.match_smarts(x)
+        )
+
+        return df
+
+    def filter(self, 
+               df: pd.DataFrame, 
+               smiles_column: str = "OPENADMET_CANONICAL_SMILES", 
+               mol_column: str = "mol",
+               mode: str = "mark") -> pd.DataFrame:
         """
         Run the SMARTS filter on the DataFrame.
 
@@ -43,41 +80,79 @@ class SMARTSFilter(BaseFilter):
         pandas.DataFrame
             The filtered DataFrame.
         """
-        # check if the smiles column exists
-        #TODO: OPENADMET_OPENADMET_CANONICAL_SMILES
-        #TODO: also make this be able to do .apply to a dataframe
-        if "OPENADMET_CANONICAL_SMILES" not in df.columns:
-            raise ValueError("The DataFrame must contain a 'OPENADMET_CANONICAL_SMILES' column.")
+        self.calculate(df, smiles_column, mol_column)
 
-        df["mol"] = df["OPENADMET_CANONICAL_SMILES"].apply(
-            lambda x: Chem.MolFromSmiles(x)
-            )
+        if self.smarts_column not in df.columns:
+            raise ValueError(f"The DataFrame must contain a '{self.smarts_column}' column.")
 
-        smarts_list = self.smarts_df[self.smarts_column].tolist()
-        names_list = self.smarts_df[self.names_column].tolist()
-
-        custom_catalog = catalog_from_smarts(smarts = smarts_list,
-                                             labels = names_list,
-                                             entry_as_inds = False,)
-
-        df[self.mark_column] = df["mol"].apply(
-            lambda x: custom_catalog.HasMatch(x)
-        )
+        df[self.mark_column] = df[self.smarts_column].apply(lambda x: len(x.keys()) > 0)
 
         return mark_or_remove(df, mode, self.mark_column)
 
-class SMARTSProximityFilter(BaseFilter):
-    """
-    Filter class to filter two sites in a molecule based on their proximity.
-    """
-    def filter(self, df: pd.DataFrame, mode="mark") -> pd.DataFrame:
+    def match_smarts(self, mol):
         """
-        Run the SMARTS proximity filter on the DataFrame.
+        Match a SMARTS pattern against a molecule.
+
+        Parameters
+        ----------
+        mol : rdkit.Chem.Mol
+            The molecule to match the SMARTS pattern against.
+        smarts_list : list
+            A list of SMARTS patterns to match.
+        names_list : list
+            A list of names corresponding to the SMARTS patterns.
+
+        Returns
+        -------
+        list
+            A list of SMARTS names from names_list that match the SMARTS pattern.
+        """
+    
+        matches = {}
+        for smarts, name in zip(self.smarts_list, self.names_list):
+            s_mol = Chem.MolFromSmarts(smarts)
+            match_atoms, _ = dm.substructure_matching_bonds(mol, s_mol)
+            if match_atoms:
+                matches[name] = match_atoms
+
+        return matches
+
+class ProximityFilter(SMARTSFilter):
+    """
+    Filter class to filter a DataFrame based on the proximity of two sites of 
+    interest based on SMARTS.
+    """
+    smarts_column_a: ClassVar[str] = "smarts_a"
+    smarts_column_b: ClassVar[str] = "smarts_b"
+    names_column_a: ClassVar[str] = "name_a"
+    names_column_b: ClassVar[str] = "name_b"
+    mark_column: ClassVar[str] = "proximity_filtered"
+
+    @classmethod
+    def filter(self, 
+                df: pd.DataFrame, 
+                inter_col:str, 
+                min_dist:float, 
+                max_dist:float,
+                any_or_all:str="any",
+                mode:str="mark") -> pd.DataFrame:
+        """
+        Filter out compounds where chromophore is greater than 
+        2 bonds away from all protonatable sites.
 
         Parameters
         ----------
         df : pandas.DataFrame
             The input DataFrame to be filtered.
+        inter_col : str
+            The column name containing the distances between the two sites of interest.
+        min_dist : float
+            The minimum distance threshold for the filter.
+        max_dist : float
+            The maximum distance threshold for the filter.
+        any_or_all : str, optional
+            If "any", the filter will mark rows that meet the criteria for any of the distances.
+            If "all", the filter will mark rows that meet the criteria for all of the distances.
         mode : str
             Either "mark" or "remove". If "mark", the filter will mark the rows that meet the criteria
             either True or False. If "remove", the filter will remove the rows that meet the criteria.
@@ -87,27 +162,58 @@ class SMARTSProximityFilter(BaseFilter):
         pandas.DataFrame
             The filtered DataFrame.
         """
-        #TODO: figure out how to treat the sites
 
-        return mark_or_remove(df, mode, "proximity")
+        if inter_col not in self.columns:
+            raise ValueError(f"The DataFrame must contain a {inter_col} column.")
 
-    def get_match_min_dists(self, distances, chrom_inds, prot_ind):
-        sub_dist_mat = distances[chrom_inds][:,prot_ind]
-        return(sub_dist_mat.min())
+        if any_or_all not in ["any", "all"]:
+            raise ValueError("any_or_all must be either 'any' or 'all'.")
 
-    def get_min_dists(self, mol, chrom, prot_sites):
+        df = min_max_filter(df, 
+                            property=inter_col, 
+                            min_threshold=min_dist, 
+                            max_threshold=max_dist, 
+                            mark_column=self.mark_column,
+                            any_or_all=any_or_all) 
+
+        return mark_or_remove(df, mode, self.mark_column)
+
+    def calculate(self, 
+                  df: pd.DataFrame,
+                  inter_col:str, 
+                  smiles_column:str="OPENADMET_CANONICAL_SMILES",
+                  mol_column:str = "mol") -> pd.DataFrame:
+
+        df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
+
+        df[self.smarts_column_a] = df[mol_column].apply(
+            lambda x: self.match_smarts(x, self.smarts_list_a, self.names_list_a)
+        )
+
+        df[self.smarts_column_b] = df[mol_column].apply(
+            lambda x: self.match_smarts(x, self.smarts_list_b, self.names_list_b)
+        )
+
+        df[inter_col] = df.apply(lambda x: self.get_min_distances_of_mol(x), axis=1)
+            
+        return df
+
+    @staticmethod
+    def get_inter_dist(self, df_row) -> list:
+        mol = df_row["mol"]
+        inds_a = df_row[self.smarts_column_a].values()
+        inds_b = df_row[self.smarts_column_b].values()
         distances = Chem.GetDistanceMatrix(mol)
-        atom_matches_chrom, _ = dm.substructure_matching_bonds(mol, chrom)
         min_dists = []
-        if not atom_matches_chrom:
+        if not inds_a:
             return pd.NA
-        for site in prot_sites:
-            atom_matches_prot, _ = dm.substructure_matching_bonds(mol, site)
-            if not atom_matches_prot:
+        for site in inds_b:
+            if not site:
                 continue
-            for prot_match in atom_matches_prot:
-                for chrom_match in atom_matches_chrom:
-                    min_dists.append(self.get_match_min_dists(distances, list(chrom_match), list(prot_match)))
+            for a in inds_a:
+                for b in inds_b:
+                    sub_dist_mat = distances[a][:,b]
+                    min_dists.append(sub_dist_mat.min())
         return(min_dists)
 
 class pKaFilter(BaseFilter):
@@ -213,24 +319,26 @@ class DatamolFilter(BaseFilter):
         if self.name not in self.name_options:
             raise ValueError(f"Descriptor name must be one of {self.name_options}.")
 
-    @classmethod
-    def filter(cls, df: pd.DataFrame, mode="mark") -> pd.DataFrame:
+    def filter(self, df: pd.DataFrame, col_name:str, mode="mark", smiles_column: str = "OPENADMET_CANONICAL_SMILES") -> pd.DataFrame:
+        
+        if not col_name:
+            self.calculate(df, col_name, smiles_column)
 
-        if cls.name not in df.columns:
-            raise ValueError(f"The DataFrame must contain a '{cls.name}' column.")
-
+        if col_name not in df.columns:
+            raise ValueError(f"The DataFrame must contain a '{col_name}' column.")
+        
         df = min_max_filter(
             df=df,
-            property=cls.name,
-            min_threshold=cls.min_value,
-            max_threshold=cls.max_value,
-            mark_column=f"{cls.name}_filtered"
+            property=col_name,
+            min_threshold=self.min_value,
+            max_threshold=self.max_value,
+            mark_column=f"{col_name}_filtered"
         )
 
-        return mark_or_remove(df, mode, f"{cls.name}_filtered")
+        return mark_or_remove(df, mode, f"{col_name}_filtered")
 
     @classmethod
-    def calculate(cls, df: pd.DataFrame, smiles_column: str = OPENADMET_CANONICAL_SMILES) -> pd.DataFrame:
+    def calculate(self, df: pd.DataFrame, col_name:str, smiles_column: str = "OPENADMET_CANONICAL_SMILES") -> pd.DataFrame:
         """
         Calculate the descriptor values for the DataFrame.
 
@@ -250,6 +358,6 @@ class DatamolFilter(BaseFilter):
         if smiles_column not in df.columns:
             raise ValueError(f"The DataFrame must contain a '{smiles_column}' column.")
 
-        df[cls.name] = df[smiles_column].apply(lambda x: dm.descriptors.eval(cls.name)(x))
+        df[col_name] = df[smiles_column].apply(lambda x: dm.descriptors.eval(col_name)(x))
 
         return df

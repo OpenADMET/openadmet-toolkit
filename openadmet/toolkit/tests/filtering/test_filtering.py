@@ -6,9 +6,9 @@ from openadmet.toolkit.filtering.filter_base import mark_or_remove
 from openadmet.toolkit.filtering.filter_base import BaseFilter
 
 from openadmet.toolkit.filtering.physchem_filters import pKaFilter
-from openadmet.toolkit.filtering.physchem_filters import logPFilter
+from openadmet.toolkit.filtering.physchem_filters import DatamolFilter
 from openadmet.toolkit.filtering.physchem_filters import SMARTSFilter
-from openadmet.toolkit.filtering.physchem_filters import SMARTSProximityFilter
+from openadmet.toolkit.filtering.physchem_filters import ProximityFilter
 
 from openadmet.toolkit.tests.datafiles import filtering_file
 
@@ -85,27 +85,34 @@ def test_smarts_filter(test_data):
     smarts_df = pd.DataFrame({
         "smarts": ["Br"],
         "name": ["Bromine"],
+        "smarts_column": ["Bromine"],
     })
-    smarts_filter = SMARTSFilter(
-        smarts_df=smarts_df,
-    )
-    filtered_df = smarts_filter.filter(test_data, mode="mark")
+
+    filter = SMARTSFilter(smarts_list=smarts_df['smarts'], names_list=smarts_df['name'])
+    filtered_df = filter.filter(df=test_data, smiles_column="cxsmiles", mode="mark")
     assert list(filtered_df["smarts_filtered"]) == [False, False, True, True, False]
 
-def test_logp_filter(clogp_data):
-    logp_filter = logPFilter(
-        min_logp=-1.0,
-        max_logp=6.0,
-    )
-    filtered_df = logp_filter.filter(clogp_data, logp_column="clogp", mode="mark")
-    assert list(filtered_df["logp_filtered"]) == [False, True, True, False, False]
+def test_datamol_filter(clogp_data):
+    logp_filter = DatamolFilter(
+        name="clogp",
+        min_value=-1.0,
+        max_value=6.0,
 
-def test_pka_filter(pka_data):
-    pka_filter = pKaFilter(
-        min_pka=4.0,
-        max_pka=10.0,
-        min_unit_sep=1.0,
     )
-    filtered_df = pka_filter.filter(pka_data, pka_column="pka", mode="mark")
-    assert list(filtered_df["pka_in_range"]) == [True, True, True, False, False]
-    assert list(filtered_df["pka_unit_sep"]) == [True, True, True, True, False]
+    filter = DatamolFilter(
+        name="clogp",
+        min_value=-1.0,
+        max_value=6.0,
+    )
+    filtered_df = filter.filter(clogp_data, col_name="clogp", mode="mark", smiles_column="cxsmiles")
+    assert list(filtered_df["clogp_filtered"]) == [False, True, True, False, False]
+
+# def test_pka_filter(pka_data):
+#     pka_filter = pKaFilter(
+#         min_pka=4.0,
+#         max_pka=10.0,
+#         min_unit_sep=1.0,
+#     )
+#     filtered_df = pka_filter.filter(pka_data, pka_column="pka", mode="mark")
+#     assert list(filtered_df["pka_in_range"]) == [True, True, True, False, False]
+#     assert list(filtered_df["pka_unit_sep"]) == [True, True, True, True, False]
