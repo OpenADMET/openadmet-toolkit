@@ -42,7 +42,7 @@ def min_max_filter(df: pd.DataFrame,
         condition = (df[property] >= min_threshold) & (df[property] <= max_threshold)
     else:
         raise ValueError("Either min_threshold or max_threshold must be provided.")
-    
+
     if not any_or_all:
         df[mark_column] = condition
     else:

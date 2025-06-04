@@ -59,9 +59,9 @@ class SMARTSFilter(BaseFilter):
 
         return df
 
-    def filter(self, 
-               df: pd.DataFrame, 
-               smiles_column: str = "OPENADMET_CANONICAL_SMILES", 
+    def filter(self,
+               df: pd.DataFrame,
+               smiles_column: str = "OPENADMET_CANONICAL_SMILES",
                mol_column: str = "mol",
                mode: str = "mark") -> pd.DataFrame:
         """
@@ -107,7 +107,7 @@ class SMARTSFilter(BaseFilter):
         list
             A list of SMARTS names from names_list that match the SMARTS pattern.
         """
-    
+
         matches = {}
         for smarts, name in zip(self.smarts_list, self.names_list):
             s_mol = Chem.MolFromSmarts(smarts)
@@ -119,7 +119,7 @@ class SMARTSFilter(BaseFilter):
 
 class ProximityFilter(SMARTSFilter):
     """
-    Filter class to filter a DataFrame based on the proximity of two sites of 
+    Filter class to filter a DataFrame based on the proximity of two sites of
     interest based on SMARTS.
     """
     smarts_column_a: ClassVar[str] = "smarts_a"
@@ -129,15 +129,15 @@ class ProximityFilter(SMARTSFilter):
     mark_column: ClassVar[str] = "proximity_filtered"
 
     @classmethod
-    def filter(self, 
-                df: pd.DataFrame, 
-                inter_col:str, 
-                min_dist:float, 
+    def filter(self,
+                df: pd.DataFrame,
+                inter_col:str,
+                min_dist:float,
                 max_dist:float,
                 any_or_all:str="any",
                 mode:str="mark") -> pd.DataFrame:
         """
-        Filter out compounds where chromophore is greater than 
+        Filter out compounds where chromophore is greater than
         2 bonds away from all protonatable sites.
 
         Parameters
@@ -169,18 +169,18 @@ class ProximityFilter(SMARTSFilter):
         if any_or_all not in ["any", "all"]:
             raise ValueError("any_or_all must be either 'any' or 'all'.")
 
-        df = min_max_filter(df, 
-                            property=inter_col, 
-                            min_threshold=min_dist, 
-                            max_threshold=max_dist, 
+        df = min_max_filter(df,
+                            property=inter_col,
+                            min_threshold=min_dist,
+                            max_threshold=max_dist,
                             mark_column=self.mark_column,
-                            any_or_all=any_or_all) 
+                            any_or_all=any_or_all)
 
         return mark_or_remove(df, mode, self.mark_column)
 
-    def calculate(self, 
+    def calculate(self,
                   df: pd.DataFrame,
-                  inter_col:str, 
+                  inter_col:str,
                   smiles_column:str="OPENADMET_CANONICAL_SMILES",
                   mol_column:str = "mol") -> pd.DataFrame:
 
@@ -195,7 +195,7 @@ class ProximityFilter(SMARTSFilter):
         )
 
         df[inter_col] = df.apply(lambda x: self.get_min_distances_of_mol(x), axis=1)
-            
+
         return df
 
     @staticmethod
@@ -320,13 +320,13 @@ class DatamolFilter(BaseFilter):
             raise ValueError(f"Descriptor name must be one of {self.name_options}.")
 
     def filter(self, df: pd.DataFrame, col_name:str, mode="mark", smiles_column: str = "OPENADMET_CANONICAL_SMILES") -> pd.DataFrame:
-        
+
         if not col_name:
             self.calculate(df, col_name, smiles_column)
 
         if col_name not in df.columns:
             raise ValueError(f"The DataFrame must contain a '{col_name}' column.")
-        
+
         df = min_max_filter(
             df=df,
             property=col_name,
