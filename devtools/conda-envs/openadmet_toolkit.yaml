@@ -19,6 +19,7 @@ dependencies:
   - pydantic-settings
   - duckdb
   - datamol
+  - medchem
     # Testing
   - pytest
   - pytest-cov
