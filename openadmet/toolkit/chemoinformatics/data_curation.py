@@ -1,5 +1,6 @@
 import pandas as pd
 from pydantic import BaseModel, Field
+from typing import Optional
 from rdkit import Chem
 
 from openadmet.toolkit.chemoinformatics.rdkit_funcs import canonical_smiles, smiles_to_inchikey
@@ -10,6 +11,7 @@ class CSVProcessing(BaseModel):
     Class to handle processing data from a csv downloaded
 
     """
+    smiles_col: Optional[str] = None
 
     @staticmethod
     def read_csv(csv_path, sep=","):
@@ -18,8 +20,7 @@ class CSVProcessing(BaseModel):
         """
         return pd.read_csv(csv_path, sep=sep)
 
-    @staticmethod
-    def standardize_smiles_and_convert(data):
+    def standardize_smiles_and_convert(self, data):
         """
         Converts data to canonical smiles and determines inchikey
 
@@ -34,10 +35,29 @@ class CSVProcessing(BaseModel):
             Dataframe with smiles canonicalized and inchikey
             column added
         """
-        data["CANONICAL_SMILES"] = data["Smiles"].apply(lambda x: canonical_smiles(x))
-        data["INCHIKEY"] = data["CANONICAL_SMILES"].apply(
-            lambda x: smiles_to_inchikey(x)
-        )
+
+        if self.smiles_col:
+            if self.smiles_col not in data.columns:
+                raise ValueError("The provided column is not in the data table!")
+            else:
+                data["CANONICAL_SMILES"] = data[self.smiles_col].apply(lambda x: canonical_smiles(x))
+                data["INCHIKEY"] = data["CANONICAL_SMILES"].apply(
+                    lambda x: smiles_to_inchikey(x)
+                )
+        else:
+            # Get column with SMILES string
+            cols = [col for col in data.columns if 'smiles' in col.lower()]
+
+            if len(cols) == 1:
+                col = cols[0]
+                data["CANONICAL_SMILES"] = data[col].apply(lambda x: canonical_smiles(x))
+                data["INCHIKEY"] = data["CANONICAL_SMILES"].apply(
+                    lambda x: smiles_to_inchikey(x)
+                )
+                
+            else:
+                raise ValueError("Multiple columns with SMILES strings detected! Choose one for CANONICAL_SMILES.")
+
         data.dropna(subset="INCHIKEY", inplace=True)
         return data
 
