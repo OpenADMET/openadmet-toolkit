@@ -40,24 +40,28 @@ class CSVProcessing(BaseModel):
             if self.smiles_col not in data.columns:
                 raise ValueError("The provided column is not in the data table!")
             else:
-                data["CANONICAL_SMILES"] = data[self.smiles_col].apply(lambda x: canonical_smiles(x))
-                data["INCHIKEY"] = data["CANONICAL_SMILES"].apply(
-                    lambda x: smiles_to_inchikey(x)
-                )
+                col = self.smiles_col
+
         else:
-            # Get column with SMILES string
-            cols = [col for col in data.columns if 'smiles' in col.lower()]
+            # Get column with valid SMILES string
+            cols = []
+            for i in data.columns:
+                for val in data[i]:
+                    if pd.notna(val):
+                        mol = Chem.MolFromSmiles(str(val))
+                        if mol is not None:
+                            cols.append(i)
+                        break
 
             if len(cols) == 1:
                 col = cols[0]
-                data["CANONICAL_SMILES"] = data[col].apply(lambda x: canonical_smiles(x))
-                data["INCHIKEY"] = data["CANONICAL_SMILES"].apply(
-                    lambda x: smiles_to_inchikey(x)
-                )
-                
             else:
-                raise ValueError("Multiple columns with SMILES strings detected! Choose one for CANONICAL_SMILES.")
-
+                raise ValueError("Multiple columns with SMILES strings detected! Choose one for OPENADMET_CANONICAL_SMILES.")
+        
+        data["OPENADMET_CANONICAL_SMILES"] = data[col].apply(lambda x: canonical_smiles(x))
+        data["INCHIKEY"] = data["OPENADMET_CANONICAL_SMILES"].apply(
+            lambda x: smiles_to_inchikey(x)
+        )
         data.dropna(subset="INCHIKEY", inplace=True)
         return data
 
