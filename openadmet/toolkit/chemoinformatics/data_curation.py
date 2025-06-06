@@ -54,7 +54,7 @@ class CSVProcessing(BaseModel):
                 data["INCHIKEY"] = data["CANONICAL_SMILES"].apply(
                     lambda x: smiles_to_inchikey(x)
                 )
-                
+
             else:
                 raise ValueError("Multiple columns with SMILES strings detected! Choose one for CANONICAL_SMILES.")
 
