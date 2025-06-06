@@ -99,7 +99,7 @@ class ChEMBLProcessing(CSVProcessing):
     keep_cols_inhib: list[str] = Field(
         default=[
             "Smiles",
-            "CANONICAL_SMILES",
+            "OPENADMET_CANONICAL_SMILES",
             "INCHIKEY",
             "pChEMBL mean",
             "pChEMBL std",
@@ -111,7 +111,7 @@ class ChEMBLProcessing(CSVProcessing):
     keep_cols_react: list[str] = Field(
         default=[
             "Smiles",
-            "CANONICAL_SMILES",
+            "OPENADMET_CANONICAL_SMILES",
             "INCHIKEY",
             "Molecule Name",
             "Action Type",
@@ -318,7 +318,7 @@ class PubChemProcessing(CSVProcessing):
     keep_cols: list[str] = Field(
         default=[
             "Smiles",
-            "CANONICAL_SMILES",
+            "OPENADMET_CANONICAL_SMILES",
             "INCHIKEY",
             "PUBCHEM_ACTIVITY_OUTCOME",
             "PUBCHEM_CID",
