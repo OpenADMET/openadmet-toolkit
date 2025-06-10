@@ -11,7 +11,7 @@ class CSVProcessing(BaseModel):
     Class to handle processing data from a csv downloaded
 
     """
-    smiles_col: Optional[str] = None
+    smiles_col: str = "SMILES"
 
     @staticmethod
     def read_csv(csv_path, sep=","):
