@@ -1,5 +1,6 @@
 import pandas as pd
 from pydantic import BaseModel, Field
+from typing import Optional
 from rdkit import Chem
 
 from openadmet.toolkit.chemoinformatics.rdkit_funcs import canonical_smiles, smiles_to_inchikey
@@ -10,6 +11,7 @@ class CSVProcessing(BaseModel):
     Class to handle processing data from a csv downloaded
 
     """
+    smiles_col: Optional[str] = None
 
     @staticmethod
     def read_csv(csv_path, sep=","):
@@ -18,8 +20,7 @@ class CSVProcessing(BaseModel):
         """
         return pd.read_csv(csv_path, sep=sep)
 
-    @staticmethod
-    def standardize_smiles_and_convert(data):
+    def standardize_smiles_and_convert(self, data):
         """
         Converts data to canonical smiles and determines inchikey
 
@@ -34,8 +35,31 @@ class CSVProcessing(BaseModel):
             Dataframe with smiles canonicalized and inchikey
             column added
         """
-        data["CANONICAL_SMILES"] = data["Smiles"].apply(lambda x: canonical_smiles(x))
-        data["INCHIKEY"] = data["CANONICAL_SMILES"].apply(
+
+        if self.smiles_col:
+            if self.smiles_col not in data.columns:
+                raise ValueError("The provided column is not in the data table!")
+            else:
+                col = self.smiles_col
+
+        else:
+            # Get column with valid SMILES string
+            cols = []
+            for i in data.columns:
+                for val in data[i]:
+                    if pd.notna(val):
+                        mol = Chem.MolFromSmiles(str(val))
+                        if mol is not None:
+                            cols.append(i)
+                        break
+
+            if len(cols) == 1:
+                col = cols[0]
+            else:
+                raise ValueError(f"Multiple columns with SMILES strings detected! Choose one for OPENADMET_CANONICAL_SMILES: {cols}.")
+
+        data["OPENADMET_CANONICAL_SMILES"] = data[col].apply(lambda x: canonical_smiles(x))
+        data["INCHIKEY"] = data["OPENADMET_CANONICAL_SMILES"].apply(
             lambda x: smiles_to_inchikey(x)
         )
         data.dropna(subset="INCHIKEY", inplace=True)
@@ -75,7 +99,7 @@ class ChEMBLProcessing(CSVProcessing):
     keep_cols_inhib: list[str] = Field(
         default=[
             "Smiles",
-            "CANONICAL_SMILES",
+            "OPENADMET_CANONICAL_SMILES",
             "INCHIKEY",
             "pChEMBL mean",
             "pChEMBL std",
@@ -87,7 +111,7 @@ class ChEMBLProcessing(CSVProcessing):
     keep_cols_react: list[str] = Field(
         default=[
             "Smiles",
-            "CANONICAL_SMILES",
+            "OPENADMET_CANONICAL_SMILES",
             "INCHIKEY",
             "Molecule Name",
             "Action Type",
@@ -294,7 +318,7 @@ class PubChemProcessing(CSVProcessing):
     keep_cols: list[str] = Field(
         default=[
             "Smiles",
-            "CANONICAL_SMILES",
+            "OPENADMET_CANONICAL_SMILES",
             "INCHIKEY",
             "PUBCHEM_ACTIVITY_OUTCOME",
             "PUBCHEM_CID",
