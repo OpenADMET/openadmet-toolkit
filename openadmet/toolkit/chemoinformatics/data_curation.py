@@ -11,7 +11,7 @@ class CSVProcessing(BaseModel):
     Class to handle processing data from a csv downloaded
 
     """
-    smiles_col: str = "SMILES"
+    smiles_col: Optional[str] = None
 
     @staticmethod
     def read_csv(csv_path, sep=","):
@@ -56,7 +56,7 @@ class CSVProcessing(BaseModel):
             if len(cols) == 1:
                 col = cols[0]
             else:
-                raise ValueError("Multiple columns with SMILES strings detected! Choose one for OPENADMET_CANONICAL_SMILES.")
+                raise ValueError(f"Multiple columns with SMILES strings detected! Choose one for OPENADMET_CANONICAL_SMILES: {cols}.")
 
         data["OPENADMET_CANONICAL_SMILES"] = data[col].apply(lambda x: canonical_smiles(x))
         data["INCHIKEY"] = data["OPENADMET_CANONICAL_SMILES"].apply(
