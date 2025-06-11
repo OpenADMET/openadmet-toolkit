@@ -30,12 +30,12 @@ class SMARTSFilter(BaseFilter):
     names_list: list
     include: bool = True # whether to filter for or against smarts
     names_column:str
-    
+
     mark_column: ClassVar[str] = "passed_smarts_filter"
 
-    def calculate(self, 
-                  df: pd.DataFrame, 
-                  smiles_column: str = "OPENADMET_CANONICAL_SMILES", 
+    def calculate(self,
+                  df: pd.DataFrame,
+                  smiles_column: str = "OPENADMET_CANONICAL_SMILES",
                   mol_column: str = "mol") -> pd.DataFrame:
         """
         Run the SMARTS filter on the DataFrame.
@@ -101,7 +101,7 @@ class SMARTSFilter(BaseFilter):
             df[self.mark_column] = df[self.names_column].apply(lambda x: len(x) == 0)
 
         return mark_or_remove(df, mode, self.mark_column)
-    
+
     def match_smarts_by_catalog(self, mol, smarts_list, names_list):
         """
         Match a SMARTS pattern against a molecule using a catalog.
@@ -139,10 +139,10 @@ class ProximityFilter(BaseFilter):
     mark_column: ClassVar[str] = "proximity_filtered"
     inter_col: ClassVar[str] = "inter_distances"
 
-    def filter(self, 
-                df: pd.DataFrame, 
-                inter_col:str, 
-                min_dist:float=None, 
+    def filter(self,
+                df: pd.DataFrame,
+                inter_col:str,
+                min_dist:float=None,
                 max_dist:float=None,
                 any_or_all:str="any",
                 smiles_column:str="OPENADMET_CANONICAL_SMILES",
@@ -150,7 +150,7 @@ class ProximityFilter(BaseFilter):
                 mode:str="mark",
                 calculate:bool=True) -> pd.DataFrame:
         """
-        Filter out compounds where chromophore is greater than 
+        Filter out compounds where chromophore is greater than
         min_dist bonds away from all protonatable sites.
 
         Parameters
@@ -213,9 +213,9 @@ class ProximityFilter(BaseFilter):
             )
 
         df[inter_col] = df.apply(lambda x: self.get_inter_dist(x), axis=1)
-            
+
         return df
-    
+
     def match_smarts(self, mol, smarts_list, names_list):
         """
         Match a SMARTS pattern against a molecule.
@@ -234,7 +234,7 @@ class ProximityFilter(BaseFilter):
         list
             A list of SMARTS names from names_list that match the SMARTS pattern.
         """
-    
+
         matches = {}
         for smarts, name in zip(smarts_list, names_list):
             s_mol = Chem.MolFromSmarts(smarts)
@@ -368,13 +368,13 @@ class DatamolFilter(BaseFilter):
             raise ValueError(f"Descriptor name must be one of {self.name_options}.")
 
     def filter(self, df: pd.DataFrame, col_name:str, mode="mark", mol_column="mol", calculate=True) -> pd.DataFrame:
-        
+
         if calculate:
             df = self.calculate(df, col_name, mol_column)
 
         if col_name not in df.columns:
             raise ValueError(f"The DataFrame must contain a '{col_name}' column.")
-        
+
         mark_column = f"pass_{col_name}_filter"
         df = min_max_filter(
             df=df,
@@ -412,7 +412,7 @@ class DatamolFilter(BaseFilter):
 
 """
 The useful case of medchem filtering is to be ablet to put in all the filtering
-you want and then have it do all of them and spit it out in columns that are 
+you want and then have it do all of them and spit it out in columns that are
 consistent with the rest of our toolkit.
 """
 
