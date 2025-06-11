@@ -93,12 +93,6 @@ def test_smarts_filter(test_data):
     assert list(filtered_df["smarts_filtered"]) == [False, False, True, True, False]
 
 def test_datamol_filter(clogp_data):
-    logp_filter = DatamolFilter(
-        name="clogp",
-        min_value=-1.0,
-        max_value=6.0,
-
-    )
     filter = DatamolFilter(
         name="clogp",
         min_value=-1.0,

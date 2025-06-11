@@ -47,9 +47,9 @@ def min_max_filter(df: pd.DataFrame,
         df[mark_column] = condition
     else:
         if any_or_all == "any":
-            df[mark_column] = condition.any(axis=1)
+            df[mark_column] = condition.any()
         elif any_or_all == 'all':
-            df[mark_column] = condition.all(axis=1)
+            df[mark_column] = condition.all()
 
     return df
 
@@ -75,7 +75,7 @@ def mark_or_remove(df: pd.DataFrame, mode:str, mark_columns = None) -> pd.DataFr
         for mark_col in mark_columns:
             if mark_col not in df.columns:
                 raise ValueError(f"Column {mark_col} not found in DataFrame.")
-            df = df[df[mark_col] == False].drop(columns=[mark_col])
+            df = df[df[mark_col] == True].drop(columns=[mark_col])
     elif mode != "mark":
         raise ValueError("mode must be either 'mark' or 'remove'")
     return df
