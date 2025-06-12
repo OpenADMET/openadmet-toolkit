@@ -86,7 +86,7 @@ class SMARTSFilter(BaseFilter):
         pandas.DataFrame
             The filtered DataFrame.
         """
-        
+
         if calculate:
             df = self.calculate(df, smiles_column, mol_column)
 
@@ -98,7 +98,7 @@ class SMARTSFilter(BaseFilter):
             df[self.mark_column] = df[self.names_column].apply(lambda x: len(x) == 0)
 
         return self.mark_or_remove(df, mode, self.mark_column)
-    
+
     def match_smarts_by_catalog(self, mol, smarts_list, names_list):
         """
         Match a SMARTS pattern against a molecule using a catalog.
@@ -131,7 +131,7 @@ class ProximityFilter(BaseFilter):
 
     names_list_a:list
     names_list_b:list
-    
+
     smarts_column_a:str
     smarts_column_b:str
 
@@ -203,7 +203,7 @@ class ProximityFilter(BaseFilter):
             )
 
         df[inter_col] = df.apply(lambda x: self.get_min_dist(x), axis=1)
-            
+
         return df
 
     def match_smarts(self, mol, smarts_list, names_list):
@@ -357,22 +357,22 @@ class DatamolFilter(BaseFilter):
         if self.name not in self.name_options:
             raise ValueError(f"Descriptor name must be one of {self.name_options}.")
 
-    def filter(self, 
-               df: pd.DataFrame, 
-               col_name:str, 
-               mode="mark", 
-               smiles_column:str="OPENADMET_CANONCIAL_SMILES", 
-               mol_column="mol", 
+    def filter(self,
+               df: pd.DataFrame,
+               col_name:str,
+               mode="mark",
+               smiles_column:str="OPENADMET_CANONCIAL_SMILES",
+               mol_column="mol",
                calculate=True) -> pd.DataFrame:
-        
+
         if calculate:
             df = self.calculate(df, col_name, smiles_column, mol_column)
-            
+
         df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
 
         if col_name not in df.columns:
             raise ValueError(f"The DataFrame must contain a '{col_name}' column.")
-        
+
         mark_column = f"passed_{col_name}_filter"
         df = self.min_max_filter(
             df=df,
@@ -384,10 +384,10 @@ class DatamolFilter(BaseFilter):
 
         return self.mark_or_remove(df, mode, mark_column)
 
-    def calculate(self, 
-                  df: pd.DataFrame, 
-                  col_name:str, 
-                  smiles_column:str = "OPENADMET_CANONICAL_SMILES", 
+    def calculate(self,
+                  df: pd.DataFrame,
+                  col_name:str,
+                  smiles_column:str = "OPENADMET_CANONICAL_SMILES",
                   mol_column:str = "mol") -> pd.DataFrame:
         """
         Calculate the descriptor values for the DataFrame.
@@ -410,4 +410,3 @@ class DatamolFilter(BaseFilter):
         df[col_name] = df[mol_column].apply(lambda x: eval(f"dm.descriptors.{self.name}")(x))
 
         return df
-
