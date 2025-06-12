@@ -1,0 +1,6 @@
+level_0,index,vendor_name,vendor_id,smiles,lead_time,cxsmiles,MW,HAC,order_quant,price_estimate,canonical_smiles,index
+0,0,enamine,EN300-4248230,O=C(O)c1nc[nH]c(=O)c1Cl,2,O=C(O)c1nc[nH]c(=O)c1Cl,173.983219636,11,1.0,45.0,O=C(O)C1=C(Cl)C(=O)N=CN1,0
+1,1,enamine,EN300-4350280,CC(C)(C)OC(=O)N1CCc2nc(C(=O)O)ccc2C1,2,CC(C)(C)OC(=O)N1CCc2nc(C(=O)O)ccc2C1,278.126657056,20,1.0,185.0,CC(C)(C)OC(=O)N1CCC2=NC(C(=O)O)=CC=C2C1,1
+15,15,enamine,EN300-106374,Cc1ccc2ccc(Br)cc2n1,2,Cc1ccc2ccc(Br)cc2n1,220.984011356,12,1.0,371.0,CC1=CC=C2C=CC(Br)=CC2=N1,15
+26,26,enamine,EN300-127190,O=C(O)c1ccc(Br)c2cc[nH]c12,2,O=C(O)c1ccc(Br)c2cc[nH]c12,238.958190532,13,1.0,292.0,O=C(O)C1=CC=C(Br)C2=C1NC=C2,26
+35,35,enamine,EN300-108042,Cc1cc(C)c(C(=O)O)cn1,2,Cc1cc(C)c(C(=O)O)cn1,151.063328528,11,1.0,65.0,CC1=CC(C)=C(C(=O)O)C=N1,35
