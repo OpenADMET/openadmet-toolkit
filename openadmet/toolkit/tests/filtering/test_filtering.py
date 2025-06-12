@@ -1,8 +1,6 @@
 import pandas as pd
 import pytest
 
-from openadmet.toolkit.filtering.filter_base import min_max_filter
-from openadmet.toolkit.filtering.filter_base import mark_or_remove
 from openadmet.toolkit.filtering.filter_base import BaseFilter
 
 from openadmet.toolkit.filtering.physchem_filters import pKaFilter
@@ -15,8 +13,8 @@ from openadmet.toolkit.tests.datafiles import filtering_file
 @pytest.fixture()
 def clogp_data():
     df = pd.DataFrame({
-        "clogp": [-2.0, 0.5, 1.5, 7.0, 8.0],
-        "test_mark": [False] * 5
+        "clogp": [-2.0, 1.5, 3.0, 7.0, 8.0],
+        "test_mark": [False, True, True, False, False]
     })
     return df
 
@@ -38,7 +36,7 @@ def test_min_max_filter(clogp_data):
     max_threshold = 6.0
 
     # Test with both min_threshold and max_threshold
-    min_max_filter(
+    BaseFilter.min_max_filter(
         df=clogp_data,
         property="clogp",
         min_threshold=min_threshold,
@@ -48,7 +46,7 @@ def test_min_max_filter(clogp_data):
     assert list(clogp_data["test_mark"]) == [False, True, True, False, False]
 
     # Test with only max_threshold
-    min_max_filter(
+    BaseFilter.min_max_filter(
         df=clogp_data,
         property="clogp",
         min_threshold=None,
@@ -58,7 +56,7 @@ def test_min_max_filter(clogp_data):
     assert list(clogp_data["test_mark"]) == [True, True, True, False, False]
 
     # Test with only min_threshold
-    min_max_filter(
+    BaseFilter.min_max_filter(
         df=clogp_data,
         property="clogp",
         min_threshold=min_threshold,
@@ -70,16 +68,16 @@ def test_min_max_filter(clogp_data):
 def test_mark_or_remove(clogp_data):
     # Test marking
     clogp_data["test_mark"] = [False, True, True, False, False]
-    marked_df = mark_or_remove(clogp_data, mode="mark", mark_columns="test_mark")
+    marked_df = BaseFilter.mark_or_remove(clogp_data, mode="mark", mark_columns="test_mark")
     assert list(marked_df["test_mark"]) == [False, True, True, False, False]
 
     # Test removing
-    removed_df = mark_or_remove(clogp_data, mode="remove", mark_columns="test_mark")
+    removed_df = BaseFilter.mark_or_remove(clogp_data, mode="remove", mark_columns="test_mark")
     assert "test_mark" not in removed_df.columns
 
     # Test invalid mode
     with pytest.raises(ValueError):
-        mark_or_remove(clogp_data, mode="invalid_mode", mark_columns="test_mark")
+        BaseFilter.mark_or_remove(clogp_data, mode="invalid_mode", mark_columns="test_mark")
 
 def test_smarts_filter(test_data):
     smarts_df = pd.DataFrame({
@@ -88,25 +86,27 @@ def test_smarts_filter(test_data):
         "smarts_column": ["Bromine"],
     })
 
-    filter = SMARTSFilter(smarts_list=smarts_df['smarts'], names_list=smarts_df['name'])
+    filter = SMARTSFilter(smarts_list=smarts_df['smarts'], names_list=smarts_df['name'], names_column='bromine')
     filtered_df = filter.filter(df=test_data, smiles_column="cxsmiles", mode="mark")
-    assert list(filtered_df["smarts_filtered"]) == [False, False, True, True, False]
+    assert list(filtered_df["passed_smarts_filter"]) == [False, False, True, True, False]
 
-def test_datamol_filter(clogp_data):
+def test_datamol_filter(test_data):
     filter = DatamolFilter(
         name="clogp",
         min_value=-1.0,
         max_value=6.0,
     )
-    filtered_df = filter.filter(clogp_data, col_name="clogp", mode="mark", smiles_column="cxsmiles")
-    assert list(filtered_df["clogp_filtered"]) == [False, True, True, False, False]
+    filtered_df = filter.filter(test_data, col_name="clogp", mode="mark", smiles_column="cxsmiles")
+    assert list(filtered_df["passed_clogp_filter"]) == [True, True, True, True, True]
 
-# def test_pka_filter(pka_data):
-#     pka_filter = pKaFilter(
-#         min_pka=4.0,
-#         max_pka=10.0,
-#         min_unit_sep=1.0,
-#     )
-#     filtered_df = pka_filter.filter(pka_data, pka_column="pka", mode="mark")
-#     assert list(filtered_df["pka_in_range"]) == [True, True, True, False, False]
-#     assert list(filtered_df["pka_unit_sep"]) == [True, True, True, True, False]
+def test_proximity_filter(test_data):
+    filter = ProximityFilter(
+        smarts_list_a = ["O"],
+        smarts_list_b = ["Br"],
+        names_list_a = ["alkyl"],
+        names_list_b = ["bromine"],
+        smarts_column_a = "alkyl_smarts",
+        smarts_column_b = "bromine_smarts",
+    )
+    filtered_df = filter.filter(test_data, max_dist=6., inter_col="proximity", mode="mark", smiles_column="cxsmiles")
+    assert list(filtered_df["passed_proximity_filter"]) == [False, False, False, True, False]
