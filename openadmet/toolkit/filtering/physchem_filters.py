@@ -352,31 +352,32 @@ class DatamolFilter(BaseFilter):
     name_options: list = ['mw','fsp3','n_hba','n_hbd','n_rings','n_hetero_atoms','n_heavy_atoms',
                           'n_rotatable_bonds','n_aliphatic_rings','n_aromatic_rings','n_saturated_rings',
                           'n_radical_electrons','tpsa','qed','clogp','sas']
+    
+    data_column: str = Field(default="descriptor_name", description="Column name to store the descriptor data in the DataFrame.")
 
     def __post_init__(self):
         if self.name not in self.name_options:
             raise ValueError(f"Descriptor name must be one of {self.name_options}.")
 
-    def filter(self,
-               df: pd.DataFrame,
-               col_name:str,
-               mode="mark",
-               smiles_column:str="OPENADMET_CANONCIAL_SMILES",
-               mol_column="mol",
+    def filter(self, 
+               df: pd.DataFrame,  
+               mode="mark", 
+               smiles_column:str="OPENADMET_CANONCIAL_SMILES", 
+               mol_column="mol", 
                calculate=True) -> pd.DataFrame:
 
         if calculate:
-            df = self.calculate(df, col_name, smiles_column, mol_column)
-
+            df = self.calculate(df, self.data_column, smiles_column, mol_column)
+            
         df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
 
-        if col_name not in df.columns:
-            raise ValueError(f"The DataFrame must contain a '{col_name}' column.")
-
-        mark_column = f"passed_{col_name}_filter"
+        if self.data_column not in df.columns:
+            raise ValueError(f"The DataFrame must contain a '{self.data_column}' column.")
+        
+        mark_column = f"passed_{self.data_column}_filter"
         df = self.min_max_filter(
             df=df,
-            property=col_name,
+            property=self.data_column,
             min_threshold=self.min_value,
             max_threshold=self.max_value,
             mark_column=mark_column
