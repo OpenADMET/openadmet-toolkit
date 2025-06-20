@@ -135,14 +135,14 @@ class ProximityFilter(BaseFilter):
     smarts_column_a:str
     smarts_column_b:str
 
+    min_dist:float=None,
+    max_dist:float=None,
+
     mark_column: ClassVar[str] = "passed_proximity_filter"
     inter_col: ClassVar[str] = "inter_distances"
 
     def filter(self,
                 df: pd.DataFrame,
-                inter_col:str,
-                min_dist:float=None,
-                max_dist:float=None,
                 smiles_column:str="OPENADMET_CANONICAL_SMILES",
                 mol_column:str = "mol",
                 mode:str="mark",
@@ -172,21 +172,20 @@ class ProximityFilter(BaseFilter):
         """
 
         if calculate:
-            df = self.calculate(df, inter_col=inter_col, smiles_column=smiles_column, mol_column=mol_column)
+            df = self.calculate(df, smiles_column=smiles_column, mol_column=mol_column)
 
         df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
 
         df = self.min_max_filter(df,
-                            property=inter_col,
-                            min_threshold=min_dist,
-                            max_threshold=max_dist,
+                            property=self.inter_col,
+                            min_threshold=self.min_dist,
+                            max_threshold=self.max_dist,
                             mark_column=self.mark_column)
 
         return self.mark_or_remove(df, mode, self.mark_column)
 
     def calculate(self,
                   df: pd.DataFrame,
-                  inter_col:str,
                   smiles_column:str="OPENADMET_CANONICAL_SMILES",
                   mol_column:str = "mol") -> pd.DataFrame:
 
@@ -202,7 +201,7 @@ class ProximityFilter(BaseFilter):
                 lambda x: self.match_smarts(x, self.smarts_list_b, self.names_list_b)
             )
 
-        df[inter_col] = df.apply(lambda x: self.get_min_dist(x), axis=1)
+        df[self.inter_col] = df.apply(lambda x: self.get_min_dist(x), axis=1)
 
         return df
 
@@ -241,7 +240,7 @@ class ProximityFilter(BaseFilter):
         if not sites_a or not sites_b:
             return pd.NA
         dist_matrix = Chem.GetDistanceMatrix(mol)
-        min_dist = np.inf
+        self.min_dist = np.inf
 
         # Flatten all atom indices from all matches in sites_a and sites_b
         atoms_a = [atom for match in sites_a.values() for match_tuple in match for atom in match_tuple]
@@ -250,9 +249,9 @@ class ProximityFilter(BaseFilter):
         for a in atoms_a:
             for b in atoms_b:
                 d = dist_matrix[a, b]
-                if d < min_dist:
-                    min_dist = d
-        return min_dist if min_dist != np.inf else pd.NA
+                if d < self.min_dist:
+                    self.min_dist = d
+        return self.min_dist if self.min_dist != np.inf else pd.NA
 
 class pKaFilter(BaseFilter):
     """
@@ -270,7 +269,12 @@ class pKaFilter(BaseFilter):
     max_pka: float = Field(default=11, description="The maximum pKa value for the range check.")
     min_unit_sep: float = Field(default=1, description="The minimum unit separation between pKa values.")
 
-    def filter(self, df: pd.DataFrame, pka_column: str = "pka", mode="mark", calculate=True) -> pd.DataFrame:
+    pka_column: str = Field(default="pka", description="The column name containing pKa values in the DataFrame.")
+
+    def filter(self, 
+               df: pd.DataFrame,
+               mode="mark",
+               calculate=True) -> pd.DataFrame:
         """
         Run the pKa filter on the DataFrame.
 
@@ -288,16 +292,16 @@ class pKaFilter(BaseFilter):
             The filtered DataFrame.
         """
         # check if the pka column exists
-        if pka_column not in df.columns:
-            raise ValueError(f"The DataFrame does not contain a {pka_column} column.")
+        if self.pka_column not in df.columns:
+            raise ValueError(f"The DataFrame does not contain a {self.pka_column} column.")
 
         if self.min_pka and self.max_pka:
             # filter for at least one pka between min_pka and max_pka
-            df["pka_in_range"] = df[pka_column].apply(lambda x: self.pkas_valid_range(x))
+            df["pka_in_range"] = df[self.pka_column].apply(lambda x: self.pkas_valid_range(x))
 
         if self.min_unit_sep:
             # filter for pka values that are at least min_unit_sep apart
-            df["pka_unit_sep"] = df[pka_column].apply(lambda x : self.pka_separation(x, self.min_unit_sep))
+            df["pka_unit_sep"] = df[self.pka_column].apply(lambda x : self.pka_separation(x, self.min_unit_sep))
 
         return self.mark_or_remove(df, mode, ["pka_in_range", "pka_unit_sep"])
 
@@ -367,8 +371,8 @@ class DatamolFilter(BaseFilter):
                calculate=True) -> pd.DataFrame:
 
         if calculate:
-            df = self.calculate(df, self.data_column, smiles_column, mol_column)
-
+            df = self.calculate(df, smiles_column, mol_column)
+            
         df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
 
         if self.data_column not in df.columns:
@@ -387,7 +391,6 @@ class DatamolFilter(BaseFilter):
 
     def calculate(self,
                   df: pd.DataFrame,
-                  col_name:str,
                   smiles_column:str = "OPENADMET_CANONICAL_SMILES",
                   mol_column:str = "mol") -> pd.DataFrame:
         """
@@ -408,6 +411,6 @@ class DatamolFilter(BaseFilter):
 
         df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
 
-        df[col_name] = df[mol_column].apply(lambda x: eval(f"dm.descriptors.{self.name}")(x))
+        df[self.data_column] = df[mol_column].apply(lambda x: eval(f"dm.descriptors.{self.name}")(x))
 
         return df

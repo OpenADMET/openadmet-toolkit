@@ -95,8 +95,9 @@ def test_datamol_filter(test_data):
         name="clogp",
         min_value=-1.0,
         max_value=6.0,
+        data_column="clogp",
     )
-    filtered_df = filter.filter(test_data, col_name="clogp", mode="mark", smiles_column="cxsmiles")
+    filtered_df = filter.filter(test_data, mode="mark", smiles_column="cxsmiles")
     assert list(filtered_df["passed_clogp_filter"]) == [True, True, True, True, True]
 
 def test_proximity_filter(test_data):
@@ -107,6 +108,7 @@ def test_proximity_filter(test_data):
         names_list_b = ["bromine"],
         smarts_column_a = "alkyl_smarts",
         smarts_column_b = "bromine_smarts",
+        max_dist=6.0,
     )
-    filtered_df = filter.filter(test_data, max_dist=6., inter_col="proximity", mode="mark", smiles_column="cxsmiles")
+    filtered_df = filter.filter(test_data, mode="mark", smiles_column="cxsmiles")
     assert list(filtered_df["passed_proximity_filter"]) == [False, False, False, True, False]
