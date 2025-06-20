@@ -271,7 +271,7 @@ class pKaFilter(BaseFilter):
 
     pka_column: str = Field(default="pka", description="The column name containing pKa values in the DataFrame.")
 
-    def filter(self, 
+    def filter(self,
                df: pd.DataFrame,
                mode="mark",
                calculate=True) -> pd.DataFrame:
@@ -372,7 +372,7 @@ class DatamolFilter(BaseFilter):
 
         if calculate:
             df = self.calculate(df, smiles_column, mol_column)
-            
+
         df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
 
         if self.data_column not in df.columns:
