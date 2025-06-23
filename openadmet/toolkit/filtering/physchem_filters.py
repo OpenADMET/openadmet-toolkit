@@ -363,7 +363,7 @@ class DatamolFilter(BaseFilter):
                mol_column="mol") -> pd.DataFrame:
 
         df = self.calculate(df, smiles_column, mol_column)
-            
+
         df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
 
         if self.data_column not in df.columns:
