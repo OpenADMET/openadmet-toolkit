@@ -2,7 +2,7 @@ import pandas as pd
 from pydantic import BaseModel, Field
 from abc import ABC, abstractmethod
 from rdkit import Chem
-
+from loguru import logger
 
 
 class BaseFilter(BaseModel):
@@ -52,6 +52,7 @@ class BaseFilter(BaseModel):
         """
 
         if mol_column in df.columns:
+            logger.info(f"mol column {smiles_column} already present, skipping")
             return df
 
         if smiles_column not in df.columns:
@@ -110,6 +111,8 @@ class BaseFilter(BaseModel):
                 df[mark_column] = condition.any()
             elif any_or_all == 'all':
                 df[mark_column] = condition.all()
+            else:
+                raise ValueError("Invalid argument,any_or_all must be either 'any' or 'all'.")
 
         return df
 
@@ -130,8 +133,12 @@ class BaseFilter(BaseModel):
         pandas.DataFrame
             The filtered DataFrame with marked rows removed.
         """
+        if not type(mark_columns) in [str, list]:
+            raise TypeError("mark_columns must be a string or a list of strings.")
+
         if isinstance(mark_columns, str):
             mark_columns = [mark_columns]
+
         if mode == "remove":
             for mark_col in mark_columns:
                 if mark_col not in df.columns:

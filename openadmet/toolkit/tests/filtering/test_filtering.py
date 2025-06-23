@@ -74,6 +74,7 @@ def test_mark_or_remove(clogp_data):
     # Test removing
     removed_df = BaseFilter.mark_or_remove(clogp_data, mode="remove", mark_columns="test_mark")
     assert "test_mark" not in removed_df.columns
+    assert len(removed_df) == 2  # Only rows with True in test_mark should remain
 
     # Test invalid mode
     with pytest.raises(ValueError):

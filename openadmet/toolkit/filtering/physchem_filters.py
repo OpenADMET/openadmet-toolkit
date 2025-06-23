@@ -16,8 +16,6 @@ from pydantic import BaseModel, Field
 from openadmet.toolkit.filtering.filter_base import BaseFilter
 from typing import ClassVar
 
-# - ProximityFilter and add test for it
-
 class SMARTSFilter(BaseFilter):
     """
     Filter class to filter a DataFrame based on SMARTS patterns.
@@ -68,8 +66,7 @@ class SMARTSFilter(BaseFilter):
                df: pd.DataFrame,
                smiles_column: str = "OPENADMET_CANONICAL_SMILES",
                mol_column: str = "mol",
-               mode: str = "mark",
-               calculate: bool = "True") -> pd.DataFrame:
+               mode: str = "mark") -> pd.DataFrame:
         """
         Run the SMARTS filter on the DataFrame.
 
@@ -87,8 +84,7 @@ class SMARTSFilter(BaseFilter):
             The filtered DataFrame.
         """
 
-        if calculate:
-            df = self.calculate(df, smiles_column, mol_column)
+        df = self.calculate(df, smiles_column, mol_column)
 
         df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
 
@@ -145,8 +141,7 @@ class ProximityFilter(BaseFilter):
                 df: pd.DataFrame,
                 smiles_column:str="OPENADMET_CANONICAL_SMILES",
                 mol_column:str = "mol",
-                mode:str="mark",
-                calculate:bool=True) -> pd.DataFrame:
+                mode:str="mark") -> pd.DataFrame:
         """
         Filter out compounds where chromophore is greater than
         min_dist bonds away from all protonatable sites.
@@ -171,8 +166,7 @@ class ProximityFilter(BaseFilter):
             The filtered DataFrame.
         """
 
-        if calculate:
-            df = self.calculate(df, smiles_column=smiles_column, mol_column=mol_column)
+        df = self.calculate(df, smiles_column=smiles_column, mol_column=mol_column)
 
         df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
 
@@ -273,8 +267,7 @@ class pKaFilter(BaseFilter):
 
     def filter(self,
                df: pd.DataFrame,
-               mode="mark",
-               calculate=True) -> pd.DataFrame:
+               mode="mark") -> pd.DataFrame:
         """
         Run the pKa filter on the DataFrame.
 
@@ -367,12 +360,10 @@ class DatamolFilter(BaseFilter):
                df: pd.DataFrame,
                mode="mark",
                smiles_column:str="OPENADMET_CANONCIAL_SMILES",
-               mol_column="mol",
-               calculate=True) -> pd.DataFrame:
+               mol_column="mol") -> pd.DataFrame:
 
-        if calculate:
-            df = self.calculate(df, smiles_column, mol_column)
-
+        df = self.calculate(df, smiles_column, mol_column)
+            
         df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
 
         if self.data_column not in df.columns:
