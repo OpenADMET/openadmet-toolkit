@@ -1,7 +1,7 @@
 import numpy as np
 from openff.units import unit
 
-def calculate_pac50(activity:float, input_unit_str:str) -> float:
+def calculate_pac50(activity:float, input_unit:str) -> float:
     """A function to calculate pAC50 from an activity measure in units of molarity (M).
     Molarity can be in M, mM, uM, µM, or nM.
     Acceptable activity measures are: EC50, IC50, XC50, AC50.
@@ -23,13 +23,13 @@ def calculate_pac50(activity:float, input_unit_str:str) -> float:
         "nM": unit.nanomolar,
     }
 
-    input_unit = unit_map.get(input_unit_str)
+    input_molar = unit_map.get(input_unit)
 
-    if input_unit is None:
-        raise ValueError(f"Unsupported molarity unit: {input_unit_str}. Must be one of {unit_map.keys()}.")
+    if input_molar is None:
+        raise ValueError(f"Unsupported molarity unit: {input_molar}. Must be one of {unit_map.keys()}.")
     
     # Get activity with the appropriate molarity units
-    activity_m = (activity * input_unit).to(unit.molar)
+    activity_m = (activity * input_molar).to(unit.molar)
     
     # Now, we can calculate the pAC50 value
     if activity > 0:

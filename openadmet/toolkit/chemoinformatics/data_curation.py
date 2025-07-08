@@ -2,8 +2,119 @@ import pandas as pd
 from pydantic import BaseModel, Field
 from typing import Optional
 from rdkit import Chem
+from pathlib import Path
+import numpy as np
 
 from openadmet.toolkit.chemoinformatics.rdkit_funcs import canonical_smiles, smiles_to_inchikey
+from openadmet.toolkit.chemoinformatics.activity_funcs import calculate_pac50
+
+class DataProcessing(BaseModel):
+    """
+    Class to handle processing data from any data file in the following formats: 
+    .csv, .tsv, .parquet, .xls, .xlsx, .json.
+
+    """
+    smiles_col: Optional[str] = None
+
+    @staticmethod
+    def read_file(path):
+        """
+        Wrapper for detecting file extension and reading in with pandas.
+        """
+        path = Path(path)
+        ext = path.suffix.lower()
+
+        if ext == ".csv":
+            return pd.read_csv(path, sep=",")
+        elif ext == ".tsv":
+            return pd.read_csv(path, sep="\t")
+        elif ext == ".parquet":
+            return pd.read_parquet(path)
+        elif ext in [".xlsx", ".xls"]:
+            return pd.read_excel(path)
+        elif ext == ".json":
+            return pd.read_json(path)
+        else:
+            raise ValueError(f"Unsupported file extension: {ext}. \n Must be one of: .csv, .tsv, .parquet, .xls, .xlsx, .json")
+
+    def standardize_smiles_and_convert(self, data):
+        """
+        Converts data to canonical smiles and determines inchikey
+
+        Parameters
+        ----------
+        data : DataFrame
+            Dataframe of csv of downloaded compound data
+
+        Returns
+        -------
+        data : DataFrame
+            Dataframe with smiles canonicalized and inchikey
+            column added
+        """
+
+        if self.smiles_col:
+            if self.smiles_col not in data.columns:
+                raise ValueError("The provided column is not in the data table!")
+            else:
+                col = self.smiles_col
+
+        else:
+            # Get column with valid SMILES string
+            cols = []
+            for i in data.columns:
+                for val in data[i]:
+                    if pd.notna(val):
+                        mol = Chem.MolFromSmiles(str(val))
+                        if mol is not None:
+                            cols.append(i)
+                        break
+
+            if len(cols) == 1:
+                col = cols[0]
+            else:
+                raise ValueError(f"Multiple columns with SMILES strings detected! Choose one for OPENADMET_CANONICAL_SMILES: {cols}.")
+
+        data["OPENADMET_CANONICAL_SMILES"] = data[col].apply(lambda x: canonical_smiles(x))
+        data["INCHIKEY"] = data["OPENADMET_CANONICAL_SMILES"].apply(
+            lambda x: smiles_to_inchikey(x)
+        )
+        data.dropna(subset="INCHIKEY", inplace=True)
+        return data
+    
+    def get_pac50(self, data, pac50_col:str, input_unit:str, activity_type:str):
+        """A function to calculate the pAC50 value from an activity measure.
+        This value will be used for future modeling prediction.
+        Valid activity measures include: IC50, EC50, XC50, AC50.
+
+        Args:
+            data (dataframe): Dataframe containing all small molecule activity data for a target
+            pac50_col (str): Name of column in dataframe with activity measure
+            input_unit (str): Units of your activity measure, must be one of M, mM, uM, µM, nM
+            activity_type (str): Designate the type of activity, e.g. IC50, EC50, XC50, AC50, etc.
+
+        Raises:
+            ValueError: An error checking if the column name provided is actually in the provided dataframe.
+
+        Returns:
+            dataframe: Two new columns added to provided dataframe: OPENADMET_LOGAC50 (pAC50) and OPENADMET_ACTIVITY_TYPE (type of activity measure)
+        """
+        # Check that column is in dataframe
+        if pac50_col in data.columns:
+            # If it is, check that the data type is correct
+            def safe_pac50(x):
+                try:
+                    return calculate_pac50(activity=float(x), input_unit=input_unit)
+                except (ValueError, TypeError):
+                    return np.nan
+
+            data["OPENADMET_LOGAC50"] = data[pac50_col].apply(safe_pac50)
+            data["OPENADMET_ACTIVITY_TYPE"] = f"p{activity_type}"
+        else:
+            raise ValueError(f"Oospie-daisy! The provided activity column {pac50_col} is not in the dataframe!")
+        
+        return data
+
 
 
 class CSVProcessing(BaseModel):
