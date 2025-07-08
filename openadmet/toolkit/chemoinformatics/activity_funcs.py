@@ -27,10 +27,10 @@ def calculate_pac50(activity:float, input_unit:str) -> float:
 
     if input_molar is None:
         raise ValueError(f"Unsupported molarity unit: {input_molar}. Must be one of {unit_map.keys()}.")
-    
+
     # Get activity with the appropriate molarity units
     activity_m = (activity * input_molar).to(unit.molar)
-    
+
     # Now, we can calculate the pAC50 value
     if activity > 0:
         return -np.log10(activity_m.magnitude)
@@ -69,12 +69,10 @@ def ki_to_dg(ki:unit.Quantity, temp_rxn:unit.Quantity = 298.15 * unit.kelvin) ->
     """
     if ki > 0:
         dg = (
-            unit.molar_gas_constant * 
-            temp_rxn.to(unit.kelvin) * 
+            unit.molar_gas_constant *
+            temp_rxn.to(unit.kelvin) *
             np.log(ki/unit.molar)
             ).to(unit.kilojoule_per_mole)
         return dg
     else:
         raise ValueError("Ah non! Your inhibition constant is negative. Gibbs free energy cannot be calculated.")
-
-

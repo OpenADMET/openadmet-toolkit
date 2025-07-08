@@ -10,7 +10,7 @@ from openadmet.toolkit.chemoinformatics.activity_funcs import calculate_pac50
 
 class DataProcessing(BaseModel):
     """
-    Class to handle processing data from any data file in the following formats: 
+    Class to handle processing data from any data file in the following formats:
     .csv, .tsv, .parquet, .xls, .xlsx, .json.
 
     """
@@ -81,7 +81,7 @@ class DataProcessing(BaseModel):
         )
         data.dropna(subset="INCHIKEY", inplace=True)
         return data
-    
+
     def get_pac50(self, data, pac50_col:str, input_unit:str, activity_type:str):
         """A function to calculate the pAC50 value from an activity measure.
         This value will be used for future modeling prediction.
@@ -112,7 +112,7 @@ class DataProcessing(BaseModel):
             data["OPENADMET_ACTIVITY_TYPE"] = f"p{activity_type}"
         else:
             raise ValueError(f"Oospie-daisy! The provided activity column {pac50_col} is not in the dataframe!")
-        
+
         return data
 
 
