@@ -20,6 +20,7 @@ dependencies:
   - duckdb
   - datamol
   - medchem
+  - openff-units
     # Testing
   - pytest
   - pytest-cov
