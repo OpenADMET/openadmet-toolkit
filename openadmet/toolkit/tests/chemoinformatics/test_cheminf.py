@@ -25,7 +25,7 @@ def amide_dataframe():
     data = pd.DataFrame(
         {
             "SMILES": ["CCN(CC)CC(=O)NC1=C(C=CC=C1C)C"],
-            "INCHIKEY": ["NNJVILVZKWQKPM-UHFFFAOYSA-N"],
+            "OPENADMET_INCHIKEY": ["NNJVILVZKWQKPM-UHFFFAOYSA-N"],
             "common_name": ["lidocaine"],
         }
     )

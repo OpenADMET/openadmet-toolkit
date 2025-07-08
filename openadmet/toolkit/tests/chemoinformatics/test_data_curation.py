@@ -20,7 +20,7 @@ def test_chembl_inhib():
     df = chembl_inhib.process(chembl_file)
     assert all(pd.notna(df["Smiles"]))
     assert all(pd.notna(df["OPENADMET_CANONICAL_SMILES"]))
-    assert df["INCHIKEY"].is_unique
+    assert df["OPENADMET_INCHIKEY"].is_unique
 
 
 def test_chembl_react():
@@ -28,7 +28,7 @@ def test_chembl_react():
     df = chembl_react.process(chembl_file)
     assert all(pd.notna(df["Smiles"]))
     assert all(pd.notna(df["OPENADMET_CANONICAL_SMILES"]))
-    assert df["INCHIKEY"].is_unique
+    assert df["OPENADMET_INCHIKEY"].is_unique
 
 
 def test_pubchem_inhib():
@@ -36,7 +36,7 @@ def test_pubchem_inhib():
     df = pubchem_inhib.process(pubchem_file, "test1", "test2")
     assert all(pd.notna(df["Smiles"]))
     assert all(pd.notna(df["OPENADMET_CANONICAL_SMILES"]))
-    assert df["INCHIKEY"].is_unique
+    assert df["OPENADMET_INCHIKEY"].is_unique
 
 
 def test_pubchem_react():
@@ -44,4 +44,4 @@ def test_pubchem_react():
     df = pubchem_inhib.process(pubchem_file, "test1", "test2")
     assert all(pd.notna(df["Smiles"]))
     assert all(pd.notna(df["OPENADMET_CANONICAL_SMILES"]))
-    assert df["INCHIKEY"].is_unique
+    assert df["OPENADMET_INCHIKEY"].is_unique

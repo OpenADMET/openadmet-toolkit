@@ -76,7 +76,7 @@ class DataProcessing(BaseModel):
                 raise ValueError(f"Multiple columns with SMILES strings detected! Choose one for OPENADMET_CANONICAL_SMILES: {cols}.")
 
         data["OPENADMET_CANONICAL_SMILES"] = data[col].apply(lambda x: canonical_smiles(x))
-        data["INCHIKEY"] = data["OPENADMET_CANONICAL_SMILES"].apply(
+        data["OPENADMET_INCHIKEY"] = data["OPENADMET_CANONICAL_SMILES"].apply(
             lambda x: smiles_to_inchikey(x)
         )
         data.dropna(subset="INCHIKEY", inplace=True)
@@ -170,10 +170,10 @@ class CSVProcessing(BaseModel):
                 raise ValueError(f"Multiple columns with SMILES strings detected! Choose one for OPENADMET_CANONICAL_SMILES: {cols}.")
 
         data["OPENADMET_CANONICAL_SMILES"] = data[col].apply(lambda x: canonical_smiles(x))
-        data["INCHIKEY"] = data["OPENADMET_CANONICAL_SMILES"].apply(
+        data["OPENADMET_INCHIKEY"] = data["OPENADMET_CANONICAL_SMILES"].apply(
             lambda x: smiles_to_inchikey(x)
         )
-        data.dropna(subset="INCHIKEY", inplace=True)
+        data.dropna(subset="OPENADMET_INCHIKEY", inplace=True)
         return data
 
 
@@ -211,7 +211,7 @@ class ChEMBLProcessing(CSVProcessing):
         default=[
             "Smiles",
             "OPENADMET_CANONICAL_SMILES",
-            "INCHIKEY",
+            "OPENADMET_INCHIKEY",
             "pChEMBL mean",
             "pChEMBL std",
             "Molecule Name",
@@ -223,7 +223,7 @@ class ChEMBLProcessing(CSVProcessing):
         default=[
             "Smiles",
             "OPENADMET_CANONICAL_SMILES",
-            "INCHIKEY",
+            "OPENADMET_INCHIKEY",
             "Molecule Name",
             "Action Type",
         ]
@@ -291,29 +291,29 @@ class ChEMBLProcessing(CSVProcessing):
             more_than_N_compounds
         )
 
-        more_than_N_compounds.INCHIKEY = more_than_N_compounds.INCHIKEY.astype(str)
-        num_assays_per_compound_df.INCHIKEY = (
-            num_assays_per_compound_df.INCHIKEY.astype(str)
+        more_than_N_compounds.OPENADMET_INCHIKEY = more_than_N_compounds.OPENADMET_INCHIKEY.astype(str)
+        num_assays_per_compound_df.OPENADMET_INCHIKEY = (
+            num_assays_per_compound_df.OPENADMET_INCHIKEY.astype(str)
         )
 
         combined_df = more_than_N_compounds.merge(
-            num_assays_per_compound_df, on="INCHIKEY"
+            num_assays_per_compound_df, on="OPENADMET_INCHIKEY"
         )
         combined_df.sort_values("assay_count", ascending=False, inplace=True)
         combined_df["assay_count"] = combined_df["assay_count"].astype(int)
 
-        compound_grouped_mean = combined_df.groupby("INCHIKEY")["pChEMBL Value"].mean()
+        compound_grouped_mean = combined_df.groupby("OPENADMET_INCHIKEY")["pChEMBL Value"].mean()
         compound_grouped_mean.reset_index()
 
         cgm = compound_grouped_mean.reset_index(name="pChEMBL mean")
-        cgm = cgm.set_index("INCHIKEY")
-        combined_df = combined_df.join(cgm, on="INCHIKEY")
+        cgm = cgm.set_index("OPENADMET_INCHIKEY")
+        combined_df = combined_df.join(cgm, on="OPENADMET_INCHIKEY")
 
-        compound_grouped_std = combined_df.groupby("INCHIKEY")["pChEMBL Value"].std()
+        compound_grouped_std = combined_df.groupby("OPENADMET_INCHIKEY")["pChEMBL Value"].std()
 
         cgstd = compound_grouped_std.reset_index(name="pChEMBL std")
-        cgstd = cgstd.set_index("INCHIKEY")
-        combined_df = combined_df.join(cgstd, on="INCHIKEY")
+        cgstd = cgstd.set_index("OPENADMET_INCHIKEY")
+        combined_df = combined_df.join(cgstd, on="OPENADMET_INCHIKEY")
 
         # get active compounds
         # defined as compounds above pChEMBL value specified (default 5.0)
@@ -367,7 +367,7 @@ class ChEMBLProcessing(CSVProcessing):
             ["common_name", "action_type"], ascending=[False, False]
         )  # keep the ones with names if possible
         clean_deduped = clean_active_sorted.drop_duplicates(
-            subset="INCHIKEY", keep="first"
+            subset="OPENADMET_INCHIKEY", keep="first"
         )
         if self.inhib:
             clean_deduped = clean_deduped.sort_values(
@@ -394,11 +394,11 @@ class ChEMBLProcessing(CSVProcessing):
 
     def get_num_assays_per_compound(self, more_than_N_compounds):
         num_assays_per_compound_df = (
-            more_than_N_compounds.groupby(["INCHIKEY"])["Assay ChEMBL ID"]
+            more_than_N_compounds.groupby(["OPENADMET_INCHIKEY"])["Assay ChEMBL ID"]
             .size()
             .reset_index(name="assay_count")
         )
-        num_assays_per_compound_df.set_index("INCHIKEY")
+        num_assays_per_compound_df.set_index("OPENADMET_INCHIKEY")
         return num_assays_per_compound_df
 
     def get_num_compounds_per_assay(self, better_units):
@@ -412,7 +412,7 @@ class ChEMBLProcessing(CSVProcessing):
         return num_compounds_per_assay_df
 
     def aggregate_activity(self, combined_df):
-        compound_grouped_mean = combined_df.groupby("INCHIKEY")["pChEMBL Value"].mean()
+        compound_grouped_mean = combined_df.groupby("OPENADMET_INCHIKEY")["pChEMBL Value"].mean()
         compound_grouped_mean.reset_index()
         return compound_grouped_mean
 
@@ -430,7 +430,7 @@ class PubChemProcessing(CSVProcessing):
         default=[
             "Smiles",
             "OPENADMET_CANONICAL_SMILES",
-            "INCHIKEY",
+            "OPENADMET_INCHIKEY",
             "PUBCHEM_ACTIVITY_OUTCOME",
             "PUBCHEM_CID",
         ]
@@ -458,12 +458,12 @@ class PubChemProcessing(CSVProcessing):
         data["PUBCHEM_SID"] = data["PUBCHEM_SID"].astype(int)
         data["PUBCHEM_CID"] = data["PUBCHEM_CID"].astype(int)
         data = self.standardize_smiles_and_convert(data)
-        data.dropna(subset="INCHIKEY")
+        data.dropna(subset="OPENADMET_INCHIKEY")
         data = data[self.keep_cols]
         data["dataset"] = aid
         data["data_type"] = data_type
         data["active"] = data["PUBCHEM_ACTIVITY_OUTCOME"] == "Active"
-        data = data.drop_duplicates(subset="INCHIKEY")
+        data = data.drop_duplicates(subset="OPENADMET_INCHIKEY")
         if self.inhib:
             data["action_type"] = "inhibition"
         elif self.react:
