@@ -34,7 +34,7 @@ class BaseFilter(BaseModel):
         pass
 
     @staticmethod
-    def set_mol_column(df: pd.DataFrame, smiles_column: str = "OPENADMET_CANONICAL_SMILES", mol_column: str = "mol") -> pd.DataFrame:
+    def get_mols(df: pd.DataFrame, smiles_column: str = "OPENADMET_CANONICAL_SMILES") -> pd.DataFrame:
         """
         Set the mol column in the DataFrame if it does not exist.
 
@@ -42,8 +42,6 @@ class BaseFilter(BaseModel):
         ----------
         df : pandas.DataFrame
             The input DataFrame to be filtered.
-        mol_column : str
-            The column name containing the RDKit Mol objects (default is 'mol').
 
         Returns
         -------
@@ -51,17 +49,13 @@ class BaseFilter(BaseModel):
             The DataFrame with the mol column set.
         """
 
-        if mol_column in df.columns:
-            logger.info(f"mol column {smiles_column} already present, skipping")
-            return df
-
         if smiles_column not in df.columns:
             raise ValueError(f"The DataFrame must contain a {smiles_column} column.")
 
-        df[mol_column] = df[smiles_column].apply(
+        mols = df[smiles_column].apply(
                 lambda x: Chem.MolFromSmiles(x)
             )
-        return df
+        return mols
 
     @staticmethod
     def min_max_filter(df: pd.DataFrame,
@@ -95,6 +89,7 @@ class BaseFilter(BaseModel):
         pandas.DataFrame
             A DataFrame containing only rows where the property values are within the specified range.
         """
+
         if min_threshold is not None and max_threshold is None:
             condition = df[property] >= min_threshold
         elif max_threshold is not None and min_threshold is None:
@@ -133,6 +128,7 @@ class BaseFilter(BaseModel):
         pandas.DataFrame
             The filtered DataFrame with marked rows removed.
         """
+
         if not type(mark_columns) in [str, list]:
             raise TypeError("mark_columns must be a string or a list of strings.")
 

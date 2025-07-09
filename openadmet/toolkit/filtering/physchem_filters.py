@@ -31,7 +31,7 @@ class SMARTSFilter(BaseFilter):
     def calculate(self,
                   df: pd.DataFrame,
                   smiles_column: str = "OPENADMET_CANONICAL_SMILES",
-                  mol_column: str = "mol") -> pd.DataFrame:
+                  mols: list = None) -> pd.DataFrame:
         """
         Run the SMARTS filter on the DataFrame.
 
@@ -45,18 +45,18 @@ class SMARTSFilter(BaseFilter):
             The list of names corresponding to the SMARTS patterns.
         smarts_col : str
             The column name to write to containing .
-        mol_col : str
-            The column name containing the RDKit Mol objects (default is 'mol').
 
         Returns
         -------
         pandas.DataFrame
-            The DataFrame with .
+            The DataFrame with matched SMARTS in names_column.
         """
+        df = df.copy()
 
-        df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
+        if not mols:
+            mols = self.set_mol_column(df=df, smiles_column=smiles_column)
 
-        df[self.names_column] = df[mol_column].apply(
+        df[self.names_column] = mols.apply(
             lambda x: self.match_smarts_by_catalog(x, self.smarts_list, self.names_list)
         )
 
@@ -65,7 +65,6 @@ class SMARTSFilter(BaseFilter):
     def filter(self,
                df: pd.DataFrame,
                smiles_column: str = "OPENADMET_CANONICAL_SMILES",
-               mol_column: str = "mol",
                mode: str = "mark") -> pd.DataFrame:
         """
         Run the SMARTS filter on the DataFrame.
@@ -83,10 +82,13 @@ class SMARTSFilter(BaseFilter):
         pandas.DataFrame
             The filtered DataFrame.
         """
+        df = df.copy()
 
-        df = self.calculate(df, smiles_column, mol_column)
+        mols = self.get_mols(df, smiles_column)
 
-        df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
+        df = self.calculate(df, smiles_column, mols)
+
+        df = self.set_mol_column(df=df, smiles_column=smiles_column)
 
         if self.include:
             df[self.mark_column] = df[self.names_column].apply(lambda x: len(x) > 0)
@@ -165,6 +167,7 @@ class ProximityFilter(BaseFilter):
         pandas.DataFrame
             The filtered DataFrame.
         """
+        df = df.copy()
 
         df = self.calculate(df, smiles_column=smiles_column, mol_column=mol_column)
 
@@ -182,6 +185,8 @@ class ProximityFilter(BaseFilter):
                   df: pd.DataFrame,
                   smiles_column:str="OPENADMET_CANONICAL_SMILES",
                   mol_column:str = "mol") -> pd.DataFrame:
+        
+        df = df.copy()
 
         df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
 
@@ -228,6 +233,8 @@ class ProximityFilter(BaseFilter):
         return matches
 
     def get_min_dist(self, df_row) -> list:
+        
+
         mol = df_row["mol"]
         sites_a = df_row[self.smarts_column_a]
         sites_b = df_row[self.smarts_column_b]
@@ -363,7 +370,7 @@ class DatamolFilter(BaseFilter):
                mol_column="mol") -> pd.DataFrame:
 
         df = self.calculate(df, smiles_column, mol_column)
-
+            
         df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
 
         if self.data_column not in df.columns:
