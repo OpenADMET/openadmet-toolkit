@@ -13,214 +13,243 @@ tqdm.pandas()
 import datamol as dm
 
 from pydantic import BaseModel, Field
-from openadmet.toolkit.filtering.filter_base import BaseFilter
+from openadmet.toolkit.filtering.filter_base import BaseFilter, FilterOutput
 from typing import ClassVar
 
 class SMARTSFilter(BaseFilter):
     """
     Filter class to filter a DataFrame based on SMARTS patterns.
 
+    Parameters
+    ----------
+    smarts_list : list
+        A list of SMARTS patterns to match against the molecules.
+    names_list : list
+        A list of names corresponding to the SMARTS patterns. i.e.
+        The name for the SMARTS "cccccc" could be "benzene".
+    include : bool, optional
+        Whether to filter for or against the SMARTS patterns.
+        If True, only molecules matching the SMARTS patterns will be included.
+        If False, only molecules not matching the SMARTS patterns will be included.
+        Default is True.
     """
+
     smarts_list: list
     names_list: list
     include: bool = True # whether to filter for or against smarts
 
-    names_column:str
-    mark_column: ClassVar[str] = "passed_smarts_filter"
-
-    def calculate(self,
-                  df: pd.DataFrame,
-                  smiles_column: str = "OPENADMET_CANONICAL_SMILES",
-                  mols: list = None) -> pd.DataFrame:
+    def filter(self,
+               smiles:list) -> FilterOutput:
         """
-        Run the SMARTS filter on the DataFrame.
+        Filter a DataFrame based on SMARTS patterns.
 
         Parameters
         ----------
-        df : pandas.DataFrame
-            The input DataFrame to be filtered.
-        smarts_list : list
-            The list of SMARTS patterns to match in the DataFrame.
-        names_list : list
-            The list of names corresponding to the SMARTS patterns.
-        smarts_col : str
-            The column name to write to containing .
-
+        smiles : list
+            A list of SMILES strings to be filtered.
+        
         Returns
         -------
-        pandas.DataFrame
-            The DataFrame with matched SMARTS in names_column.
+        FilterOutput
+            A FilterOutput object containing the filtered values and a 
+            boolean list indicating whether each row meets the filter criteria.
         """
-        df = df.copy()
 
-        if not mols:
-            mols = self.set_mol_column(df=df, smiles_column=smiles_column)
+        mols = self.get_mols(smiles=smiles)
 
-        df[self.names_column] = mols.apply(
+        matches = self.calculate(smiles, mols)
+
+        if self.include:
+            passes = matches.apply(lambda x: len(x) > 0)
+        elif not self.include:
+            passes = matches.apply(lambda x: len(x) == 0)
+
+        return FilterOutput(values=matches, passes=passes)
+
+    def calculate(self,
+                  smiles: list,
+                  mols: list = None) -> list:
+        """
+        Calculate the matches of the SMARTS patterns against the molecules.
+
+        Parameters
+        ----------
+        smiles : list
+            A list of SMILES strings to be filtered.
+        mols : list, optional
+            A list of RDKit Mol objects corresponding to the SMILES strings.
+            If not provided, it will be generated from the SMILES strings.
+        
+        Returns
+        -------
+        list
+            A list containing the matches for each molecule.
+        """
+
+        if mols is None:
+            mols = self.get_mols(smiles=smiles)
+
+        matches = mols.apply(
             lambda x: self.match_smarts_by_catalog(x, self.smarts_list, self.names_list)
         )
 
-        return df
-
-    def filter(self,
-               df: pd.DataFrame,
-               smiles_column: str = "OPENADMET_CANONICAL_SMILES",
-               mode: str = "mark") -> pd.DataFrame:
-        """
-        Run the SMARTS filter on the DataFrame.
-
-        Parameters
-        ----------
-        df : pandas.DataFrame
-            The input DataFrame to be filtered.
-        mode : str
-            Either "mark" or "remove". If "mark", the filter will mark the rows that meet the criteria
-            either True or False. If "remove", the filter will remove the rows that meet the criteria.
-
-        Returns
-        -------
-        pandas.DataFrame
-            The filtered DataFrame.
-        """
-        df = df.copy()
-
-        mols = self.get_mols(df, smiles_column)
-
-        df = self.calculate(df, smiles_column, mols)
-
-        df = self.set_mol_column(df=df, smiles_column=smiles_column)
-
-        if self.include:
-            df[self.mark_column] = df[self.names_column].apply(lambda x: len(x) > 0)
-        elif not self.include:
-            df[self.mark_column] = df[self.names_column].apply(lambda x: len(x) == 0)
-
-        return self.mark_or_remove(df, mode, self.mark_column)
+        return matches
 
     def match_smarts_by_catalog(self, mol, smarts_list, names_list):
         """
-        Match a SMARTS pattern against a molecule using a catalog.
+        Match a molecule against a list of SMARTS patterns using a catalog.
+        This method uses the `catalog_from_smarts` function to create a catalog
+        from the provided SMARTS patterns and names, and then retrieves matches.
 
         Parameters
         ----------
         mol : rdkit.Chem.Mol
-            The molecule to match the SMARTS pattern against.
+            The RDKit molecule to match against the SMARTS patterns.
         smarts_list : list
-            A list of SMARTS patterns to match.
+            A list of SMARTS patterns to match against the molecule.
         names_list : list
             A list of names corresponding to the SMARTS patterns.
-
+        
         Returns
         -------
-        dict
-            A dictionary with names as keys and matched atom indices as values.
+        list
+            A list of descriptions of the matches found in the molecule.
         """
+
         catalog = catalog_from_smarts(smarts_list, names_list)
         matches = catalog.GetMatches(mol)
         return [m.GetDescription() for m in matches]
 
 class ProximityFilter(BaseFilter):
     """
-    Filter class to filter a DataFrame based on the proximity of two sites of
-    interest based on SMARTS.
+    Filter class to filter molecules based on the proximity of two sets of SMARTS patterns.
+
+    This filter checks the minimum distance between matches of two sets of SMARTS patterns
+    within a specified distance range.
+
+    Parameters
+    ----------
+    smarts_list_a : list
+        A list of SMARTS patterns for the first set.
+    smarts_list_b : list
+        A list of SMARTS patterns for the second set.
+    names_list_a : list
+        A list of names corresponding to the SMARTS patterns in the first set.
+        i.e. The name for the SMARTS "cccccc" could be "benzene".
+    names_list_b : list
+        A list of names corresponding to the SMARTS patterns in the second set.
+        i.e. The name for the SMARTS "cccccc" could be "benzene".
+    min_dist : float, optional
+        The minimum distance between matches of the two sets of SMARTS patterns.
+        If not specified, no minimum distance filter is applied.
+    max_dist : float, optional
+        The maximum distance between matches of the two sets of SMARTS patterns.
+        If not specified, no maximum distance filter is applied.
     """
+
     smarts_list_a:list
     smarts_list_b:list
 
     names_list_a:list
     names_list_b:list
 
-    smarts_column_a:str
-    smarts_column_b:str
-
-    min_dist:float=None,
-    max_dist:float=None,
-
-    mark_column: ClassVar[str] = "passed_proximity_filter"
-    inter_col: ClassVar[str] = "inter_distances"
+    min_dist:float=None
+    max_dist:float=None
 
     def filter(self,
-                df: pd.DataFrame,
-                smiles_column:str="OPENADMET_CANONICAL_SMILES",
-                mol_column:str = "mol",
-                mode:str="mark") -> pd.DataFrame:
+                smiles:list) -> FilterOutput:
         """
-        Filter out compounds where chromophore is greater than
-        min_dist bonds away from all protonatable sites.
+        Filter a DataFrame based on the proximity of two sets of SMARTS patterns.
+
+        This method calculates the minimum distance between matches of the two sets
+        of SMARTS patterns and checks if they fall within the specified distance range.
 
         Parameters
         ----------
-        df : pandas.DataFrame
-            The input DataFrame to be filtered.
-        inter_col : str
-            The column name containing the distances between the two sites of interest.
-        min_dist : float
-            The minimum distance threshold for the filter.
-        max_dist : float
-            The maximum distance threshold for the filter.
-        mode : str
-            Either "mark" or "remove". If "mark", the filter will mark the rows that meet the criteria
-            either True or False. If "remove", the filter will remove the rows that meet the criteria.
-
+        smiles : list
+            A list of SMILES strings to be filtered.
+        
         Returns
         -------
-        pandas.DataFrame
-            The filtered DataFrame.
+        FilterOutput
+            A FilterOutput object containing the calculated distances and a boolean list
+            indicating whether each row meets the filter criteria based on the specified distance range.
         """
-        df = df.copy()
 
-        df = self.calculate(df, smiles_column=smiles_column, mol_column=mol_column)
+        mols = self.get_mols(smiles=smiles)
 
-        df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
+        distances = self.calculate(smiles=smiles, mols=mols)
 
-        df = self.min_max_filter(df,
-                            property=self.inter_col,
+        passes = self.min_max_filter(property=distances,
                             min_threshold=self.min_dist,
-                            max_threshold=self.max_dist,
-                            mark_column=self.mark_column)
+                            max_threshold=self.max_dist)
 
-        return self.mark_or_remove(df, mode, self.mark_column)
+        return FilterOutput(values=distances, passes=passes)
 
     def calculate(self,
-                  df: pd.DataFrame,
-                  smiles_column:str="OPENADMET_CANONICAL_SMILES",
-                  mol_column:str = "mol") -> pd.DataFrame:
+                  smiles:list,
+                  mols:list = None) -> list:
+        """
+        Calculate the minimum distance between matches of two sets of SMARTS patterns.
+        This method applies the SMARTS matching to each molecule and computes the minimum distance
+        between matches of the two sets of SMARTS patterns.
+
+        Parameters
+        ----------
+        smiles : list
+            A list of SMILES strings to be filtered.
+        mols : list, optional
+            A list of RDKit Mol objects corresponding to the SMILES strings.
+            If not provided, it will be generated from the SMILES strings.
         
-        df = df.copy()
+        Returns
+        -------
+        list
+            A list containing the minimum distances between matches of the two sets of SMARTS patterns
+            for each molecule. If no matches are found, it returns pd.NA.
+        """
 
-        df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
+        if mols is None:
+            mols = self.set_mols(smiles=smiles)
 
-        if not self.smarts_column_a in df.columns:
-            df[self.smarts_column_a] = df[mol_column].apply(
+        matches_a = mols.apply(
                 lambda x: self.match_smarts(x, self.smarts_list_a, self.names_list_a)
             )
 
-        if not self.smarts_column_b in df.columns:
-            df[self.smarts_column_b] = df[mol_column].apply(
+        matches_b = mols.apply(
                 lambda x: self.match_smarts(x, self.smarts_list_b, self.names_list_b)
             )
 
-        df[self.inter_col] = df.apply(lambda x: self.get_min_dist(x), axis=1)
+        df = pd.DataFrame({
+            "mol": mols,
+            "col_a": matches_a,
+            "col_b": matches_b
+        })
 
-        return df
+        inter_dists = df.progress_apply(self.get_min_dist, axis=1)
 
-    def match_smarts(self, mol, smarts_list, names_list):
+        return inter_dists
+
+    def match_smarts(self, mol, smarts_list, names_list) -> dict:
         """
-        Match a SMARTS pattern against a molecule.
+        Match a molecule against a list of SMARTS patterns and return the matches.
+        This method uses RDKit to create a Mol object from each SMARTS pattern
+        and checks for substructure matches in the provided molecule.
 
         Parameters
         ----------
         mol : rdkit.Chem.Mol
-            The molecule to match the SMARTS pattern against.
+            The RDKit molecule to match against the SMARTS patterns.
         smarts_list : list
-            A list of SMARTS patterns to match.
+            A list of SMARTS patterns to match against the molecule.
         names_list : list
             A list of names corresponding to the SMARTS patterns.
 
         Returns
         -------
-        list
-            A list of SMARTS names from names_list that match the SMARTS pattern.
+        dict
+            A dictionary where keys are names of the SMARTS patterns and values are lists of tuples
+            containing the atom indices of the matches in the molecule.
         """
 
         matches = {}
@@ -233,11 +262,29 @@ class ProximityFilter(BaseFilter):
         return matches
 
     def get_min_dist(self, df_row) -> list:
-        
+        """
+        Calculate the minimum distance between matches of two sets of SMARTS patterns
+        for a given row in the DataFrame.
+
+        This method retrieves the RDKit Mol object and the matches for both sets of SMARTS patterns,
+        computes the distance matrix, and finds the minimum distance between all pairs of matches.
+
+        Parameters
+        ----------
+        df_row : pd.Series
+            A row from the DataFrame containing the RDKit Mol object and the matches for both sets
+            of SMARTS patterns.
+
+        Returns
+        -------
+        float or pd.NA
+            The minimum distance between matches of the two sets of SMARTS patterns.
+            If no matches are found in either set, it returns pd.NA.
+        """
 
         mol = df_row["mol"]
-        sites_a = df_row[self.smarts_column_a]
-        sites_b = df_row[self.smarts_column_b]
+        sites_a = df_row["col_a"]
+        sites_b = df_row["col_b"]
         if not sites_a or not sites_b:
             return pd.NA
         dist_matrix = Chem.GetDistanceMatrix(mol)
@@ -252,73 +299,79 @@ class ProximityFilter(BaseFilter):
                 d = dist_matrix[a, b]
                 if d < self.min_dist:
                     self.min_dist = d
+
         return self.min_dist if self.min_dist != np.inf else pd.NA
 
 class pKaFilter(BaseFilter):
     """
-    Filter class to filter a DataFrame based on pKa values.
+    Filter class to filter molecules based on pKa values.
+
+    This filter checks if at least one pKa value is within a specified range
+    and if all pKa values are separated by a minimum distance.
+
     Parameters
     ----------
-    min_pka : float
-        The minimum pKa value for the range check (default is 3).
-    max_pka : float
-        The maximum pKa value for the range check (default is 11).
-    min_unit_sep : float
-        The minimum unit separation between pKa values (default is 1).
+    min_pka : float, optional
+        The minimum pKa value for the range check. Default is 3.
+    max_pka : float, optional
+        The maximum pKa value for the range check. Default is 11.
+    min_unit_sep : float, optional
+        The minimum unit separation between pKa values. Default is 1.
     """
+
     min_pka: float = Field(default=3, description="The minimum pKa value for the range check.")
     max_pka: float = Field(default=11, description="The maximum pKa value for the range check.")
     min_unit_sep: float = Field(default=1, description="The minimum unit separation between pKa values.")
 
-    pka_column: str = Field(default="pka", description="The column name containing pKa values in the DataFrame.")
-
     def filter(self,
-               df: pd.DataFrame,
-               mode="mark") -> pd.DataFrame:
+               pkas: list) -> FilterOutput:
         """
-        Run the pKa filter on the DataFrame.
+        Filter a DataFrame based on pKa values.
+
+        This method checks if at least one pKa value is within the specified range
+        and if all pKa values are separated by a minimum distance.
 
         Parameters
         ----------
-        df : pandas.DataFrame
-            The input DataFrame to be filtered.
-        mode : str
-            Either "mark" or "remove". If "mark", the filter will mark the rows that meet the criteria
-            either True or False. If "remove", the filter will remove the rows that meet the criteria.
-
+        pkas : list
+            A list of pKa values for each molecule to be filtered.
+        
         Returns
         -------
-        pandas.DataFrame
-            The filtered DataFrame.
+        FilterOutput
+            A FilterOutput object containing the pKa values and a boolean list
+            indicating whether each row meets the filter criteria based on the specified pKa range and separation.
         """
-        # check if the pka column exists
-        if self.pka_column not in df.columns:
-            raise ValueError(f"The DataFrame does not contain a {self.pka_column} column.")
 
         if self.min_pka and self.max_pka:
             # filter for at least one pka between min_pka and max_pka
-            df["pka_in_range"] = df[self.pka_column].apply(lambda x: self.pkas_valid_range(x))
+            pkas_min_max = pkas.apply(lambda x: self.pkas_valid_range(x))
 
         if self.min_unit_sep:
             # filter for pka values that are at least min_unit_sep apart
-            df["pka_unit_sep"] = df[self.pka_column].apply(lambda x : self.pka_separation(x, self.min_unit_sep))
+            pkas_unit_sep = pkas_min_max.apply(lambda x : self.pka_separation(x, self.min_unit_sep))
 
-        return self.mark_or_remove(df, mode, ["pka_in_range", "pka_unit_sep"])
+        return FilterOutput(values=pkas,
+            passes=pkas_min_max & pkas_unit_sep)
 
     def pkas_valid_range(self, pkas: list) -> bool:
         """
-        Check if the pKa values are within the specified range.
+        Check if at least one pKa value is within the specified range.
+
+        This method iterates through the list of pKa values and checks if any of them
+        fall within the range defined by `min_pka` and `max_pka`.
 
         Parameters
         ----------
         pkas : list
             A list of pKa values to be checked.
-
+        
         Returns
         -------
         bool
-            True if all pKa values are within the specified range.
+            True if at least one pKa value is within the range, False otherwise.
         """
+
         valid_range = False
         for pka in pkas:
             if self.min_pka <= pka <= self.max_pka:
@@ -328,20 +381,24 @@ class pKaFilter(BaseFilter):
 
     def pka_separation(self, pkas: list, min_unit_sep: float) -> bool:
         """
-        Check if the pKa values are at least min_unit_sep apart.
+        Check if all pKa values are separated by a minimum distance.
+
+        This method iterates through the list of pKa values and checks if the absolute difference
+        between any two pKa values is greater than or equal to `min_unit_sep`.
 
         Parameters
         ----------
         pkas : list
             A list of pKa values to be checked.
         min_unit_sep : float
-            The minimum unit separation between pKa values.
-
+            The minimum distance that should separate any two pKa values.
+        
         Returns
         -------
         bool
-            True if all pKa values are at least min_unit_sep apart.
+            True if all pKa values are separated by at least `min_unit_sep`, False otherwise.
         """
+
         for i in range(len(pkas)):
             for j in range(i + 1, len(pkas)):
                 if abs(pkas[i] - pkas[j]) < min_unit_sep:
@@ -349,6 +406,23 @@ class pKaFilter(BaseFilter):
         return True
 
 class DatamolFilter(BaseFilter):
+    """
+    Filter class to filter molecules based on physicochemical descriptors using Datamol.
+
+    This filter calculates a specified descriptor for each molecule and checks if
+    the descriptor value falls within a specified range.
+
+    Parameters
+    ----------
+    name : str
+        The name of the descriptor to filter on. Must be one of the predefined options.
+    min_value : float
+        The minimum descriptor value for the filter.
+    max_value : float
+        The maximum descriptor value for the filter. 
+    name_options : list, optional
+        A list of valid descriptor names. Default includes common physicochemical descriptors.
+    """
 
     name: str = Field(description="Descriptor name to filter on.")
     min_value: float = Field(description="Minimum descriptor value for the filter.")
@@ -357,58 +431,69 @@ class DatamolFilter(BaseFilter):
                           'n_rotatable_bonds','n_aliphatic_rings','n_aromatic_rings','n_saturated_rings',
                           'n_radical_electrons','tpsa','qed','clogp','sas']
 
-    data_column: str = Field(default="descriptor_name", description="Column name to store the descriptor data in the DataFrame.")
-
     def __post_init__(self):
         if self.name not in self.name_options:
             raise ValueError(f"Descriptor name must be one of {self.name_options}.")
 
     def filter(self,
-               df: pd.DataFrame,
-               mode="mark",
-               smiles_column:str="OPENADMET_CANONCIAL_SMILES",
-               mol_column="mol") -> pd.DataFrame:
-
-        df = self.calculate(df, smiles_column, mol_column)
-            
-        df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
-
-        if self.data_column not in df.columns:
-            raise ValueError(f"The DataFrame must contain a '{self.data_column}' column.")
-
-        mark_column = f"passed_{self.data_column}_filter"
-        df = self.min_max_filter(
-            df=df,
-            property=self.data_column,
-            min_threshold=self.min_value,
-            max_threshold=self.max_value,
-            mark_column=mark_column
-        )
-
-        return self.mark_or_remove(df, mode, mark_column)
-
-    def calculate(self,
-                  df: pd.DataFrame,
-                  smiles_column:str = "OPENADMET_CANONICAL_SMILES",
-                  mol_column:str = "mol") -> pd.DataFrame:
+               smiles:list) -> FilterOutput:
         """
-        Calculate the descriptor values for the DataFrame.
+        Filter a DataFrame based on a physicochemical descriptor calculated using Datamol.
+
+        This method calculates the specified descriptor for each molecule and checks if
+        the descriptor value falls within the specified range.
 
         Parameters
         ----------
-        df : pandas.DataFrame
-            The input DataFrame to calculate descriptor values for.
-        smiles_column : str
-            The column name containing SMILES strings (default is 'OPENADMET_CANONICAL_SMILES').
-
+        smiles : list
+            A list of SMILES strings to be filtered.
+        
         Returns
         -------
-        pandas.DataFrame
-            The DataFrame with calculated descriptor values.
+        FilterOutput
+            A FilterOutput object containing the calculated descriptor values and a boolean list
+            indicating whether each row meets the filter criteria based on the specified descriptor range.
         """
 
-        df = self.set_mol_column(df=df, smiles_column=smiles_column, mol_column=mol_column)
+        mols = self.get_mols(smiles=smiles)
 
-        df[self.data_column] = df[mol_column].apply(lambda x: eval(f"dm.descriptors.{self.name}")(x))
+        property = self.calculate(smiles, mols)
 
-        return df
+        passes = self.min_max_filter(
+            property=property,
+            min_threshold=self.min_value,
+            max_threshold=self.max_value,
+        )
+
+        return FilterOutput(values=property, passes=passes)
+
+    def calculate(self,
+                  smiles:list,
+                  mols:list = None) -> list:
+        """
+        Calculate the specified physicochemical descriptor for each molecule.
+
+        This method uses Datamol to compute the descriptor value for each molecule
+        based on the provided SMILES strings or RDKit Mol objects.
+
+        Parameters
+        ----------
+        smiles : list
+            A list of SMILES strings to be filtered.
+        mols : list, optional
+            A list of RDKit Mol objects corresponding to the SMILES strings.
+            If not provided, it will be generated from the SMILES strings.
+        
+        Returns
+        -------
+        list
+            A list containing the calculated descriptor values for each molecule.
+            If no molecules are provided, it returns an empty list.
+        """
+
+        if mols is None:
+            mols = self.get_mols(smiles=smiles)
+
+        property = mols.apply(lambda x: eval(f"dm.descriptors.{self.name}")(x))
+
+        return property
