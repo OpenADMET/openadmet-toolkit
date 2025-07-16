@@ -47,11 +47,11 @@ class SMARTSFilter(BaseFilter):
         ----------
         smiles : list
             A list of SMILES strings to be filtered.
-        
+
         Returns
         -------
         FilterOutput
-            A FilterOutput object containing the filtered values and a 
+            A FilterOutput object containing the filtered values and a
             boolean list indicating whether each row meets the filter criteria.
         """
 
@@ -79,7 +79,7 @@ class SMARTSFilter(BaseFilter):
         mols : list, optional
             A list of RDKit Mol objects corresponding to the SMILES strings.
             If not provided, it will be generated from the SMILES strings.
-        
+
         Returns
         -------
         list
@@ -109,7 +109,7 @@ class SMARTSFilter(BaseFilter):
             A list of SMARTS patterns to match against the molecule.
         names_list : list
             A list of names corresponding to the SMARTS patterns.
-        
+
         Returns
         -------
         list
@@ -168,7 +168,7 @@ class ProximityFilter(BaseFilter):
         ----------
         smiles : list
             A list of SMILES strings to be filtered.
-        
+
         Returns
         -------
         FilterOutput
@@ -201,7 +201,7 @@ class ProximityFilter(BaseFilter):
         mols : list, optional
             A list of RDKit Mol objects corresponding to the SMILES strings.
             If not provided, it will be generated from the SMILES strings.
-        
+
         Returns
         -------
         list
@@ -335,7 +335,7 @@ class pKaFilter(BaseFilter):
         ----------
         pkas : list
             A list of pKa values for each molecule to be filtered.
-        
+
         Returns
         -------
         FilterOutput
@@ -365,7 +365,7 @@ class pKaFilter(BaseFilter):
         ----------
         pkas : list
             A list of pKa values to be checked.
-        
+
         Returns
         -------
         bool
@@ -392,7 +392,7 @@ class pKaFilter(BaseFilter):
             A list of pKa values to be checked.
         min_unit_sep : float
             The minimum distance that should separate any two pKa values.
-        
+
         Returns
         -------
         bool
@@ -419,7 +419,7 @@ class DatamolFilter(BaseFilter):
     min_value : float
         The minimum descriptor value for the filter.
     max_value : float
-        The maximum descriptor value for the filter. 
+        The maximum descriptor value for the filter.
     name_options : list, optional
         A list of valid descriptor names. Default includes common physicochemical descriptors.
     """
@@ -447,7 +447,7 @@ class DatamolFilter(BaseFilter):
         ----------
         smiles : list
             A list of SMILES strings to be filtered.
-        
+
         Returns
         -------
         FilterOutput
@@ -483,7 +483,7 @@ class DatamolFilter(BaseFilter):
         mols : list, optional
             A list of RDKit Mol objects corresponding to the SMILES strings.
             If not provided, it will be generated from the SMILES strings.
-        
+
         Returns
         -------
         list

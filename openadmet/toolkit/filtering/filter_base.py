@@ -30,7 +30,7 @@ class FilterOutput(BaseModel):
             A list of values for the filter criteria.
         """
         return self.values
-    
+
     def get_passes(self) -> list:
         """
         Get the marks indicating whether each row meets the filter criteria.
@@ -75,7 +75,7 @@ class BaseFilter(BaseModel):
         ----------
         smiles : list
             A list of SMILES strings.
-        
+
         Returns
         -------
         list
@@ -116,5 +116,5 @@ class BaseFilter(BaseModel):
             condition = (property >= min_threshold) & (property <= max_threshold)
         else:
             raise ValueError("Either min_threshold or max_threshold must be provided.")
-        
+
         return condition
