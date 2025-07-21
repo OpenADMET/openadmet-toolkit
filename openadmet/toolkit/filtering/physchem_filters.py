@@ -139,11 +139,13 @@ class ProximityFilter(BaseFilter):
     names_list_b : list
         A list of names corresponding to the SMARTS patterns in the second set.
         i.e. The name for the SMARTS "cccccc" could be "benzene".
-    min_dist : float, optional
-        The minimum distance between matches of the two sets of SMARTS patterns.
+    min_dist : int, optional
+        The minimum distance, in number of atom bonds,
+        between matches of the two sets of SMARTS patterns.
         If not specified, no minimum distance filter is applied.
-    max_dist : float, optional
-        The maximum distance between matches of the two sets of SMARTS patterns.
+    max_dist : int, optional
+        The maximum distance, in number of atom bonds,
+        between matches of the two sets of SMARTS patterns.
         If not specified, no maximum distance filter is applied.
     """
 
@@ -153,8 +155,8 @@ class ProximityFilter(BaseFilter):
     names_list_a:list
     names_list_b:list
 
-    min_dist:float=None
-    max_dist:float=None
+    min_dist:int=None
+    max_dist:int=None
 
     def filter(self,
                 smiles:list) -> FilterOutput:
