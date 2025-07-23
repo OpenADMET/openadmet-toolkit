@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from openadmet.toolkit.chemoinformatics.data_curation import ChEMBLProcessing, PubChemProcessing
+from openadmet.toolkit.chemoinformatics.data_curation import ChEMBLProcessing, PubChemProcessing, DataProcessing
 from openadmet.toolkit.tests.datafiles import chembl_file, pubchem_file
 
 
@@ -45,3 +45,10 @@ def test_pubchem_react():
     assert all(pd.notna(df["Smiles"]))
     assert all(pd.notna(df["OPENADMET_CANONICAL_SMILES"]))
     assert df["OPENADMET_INCHIKEY"].is_unique
+
+def test_single_processing():
+    data_process = DataProcessing()
+    df = data_process.read_file(pubchem_file)
+    df = data_process.standardize_smiles_and_convert(df, smiles_col="PUBCHEM_EXT_DATASOURCE_SMILES")
+    assert all(pd.notna(df["OPENADMET_CANONICAL_SMILES"]))
+    assert "OPENADMET_INCHIKEY" in df.columns

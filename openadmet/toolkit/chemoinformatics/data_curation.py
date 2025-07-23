@@ -14,7 +14,7 @@ class DataProcessing(BaseModel):
     .csv, .tsv, .parquet, .xls, .xlsx, .json.
 
     """
-    smiles_col: Optional[str] = None
+    # smiles_col: Optional[str] = None
 
     @staticmethod
     def read_file(path):
@@ -37,49 +37,36 @@ class DataProcessing(BaseModel):
         else:
             raise ValueError(f"Unsupported file extension: {ext}. \n Must be one of: .csv, .tsv, .parquet, .xls, .xlsx, .json")
 
-    def standardize_smiles_and_convert(self, data):
+    def standardize_smiles_and_convert(self, data, smiles_col:str):
         """
         Converts data to canonical smiles and determines inchikey
 
         Parameters
         ----------
-        data : DataFrame
-            Dataframe of csv of downloaded compound data
+        data : dataframe
+            compound activity data read in from a file
+        smiles_col : str
+            a column with SMILES strings for canonicalization
 
         Returns
         -------
-        data : DataFrame
-            Dataframe with smiles canonicalized and inchikey
-            column added
+        dataframe
+            compound with added activity columns, OPENADMET_CANONICAL_SMILES and OPENADMET_INCHIKEY
+
+        Raises
+        ------
+        ValueError
+            An error checking if the column name provided is actually in the provided dataframe.
         """
 
-        if self.smiles_col:
-            if self.smiles_col not in data.columns:
-                raise ValueError("The provided column is not in the data table!")
-            else:
-                col = self.smiles_col
-
+        if smiles_col in data.columns:
+            data["OPENADMET_CANONICAL_SMILES"] = data[smiles_col].apply(lambda x: canonical_smiles(x))
+            data["OPENADMET_INCHIKEY"] = data["OPENADMET_CANONICAL_SMILES"].apply(
+                lambda x: smiles_to_inchikey(x)
+                )
+            data.dropna(subset="OPENADMET_INCHIKEY", inplace=True)
         else:
-            # Get column with valid SMILES string
-            cols = []
-            for i in data.columns:
-                for val in data[i]:
-                    if pd.notna(val):
-                        mol = Chem.MolFromSmiles(str(val))
-                        if mol is not None:
-                            cols.append(i)
-                        break
-
-            if len(cols) == 1:
-                col = cols[0]
-            else:
-                raise ValueError(f"Multiple columns with SMILES strings detected! Choose one for OPENADMET_CANONICAL_SMILES: {cols}.")
-
-        data["OPENADMET_CANONICAL_SMILES"] = data[col].apply(lambda x: canonical_smiles(x))
-        data["OPENADMET_INCHIKEY"] = data["OPENADMET_CANONICAL_SMILES"].apply(
-            lambda x: smiles_to_inchikey(x)
-        )
-        data.dropna(subset="INCHIKEY", inplace=True)
+            raise ValueError("The provided column is not in the data table!")
         return data
 
     def get_pac50(self, data, pac50_col:str, input_unit:str, activity_type:str):
