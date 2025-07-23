@@ -38,7 +38,8 @@ def calculate_pac50(activity:float, input_unit_str:str) -> float:
         raise ValueError("Whoops! Negative activity measure values are not allowed.")
 
 def pac50_to_ki(pac50:float) -> float:
-    """A function to convert pAC50 value to inhibition constant (Ki).
+    """A function to approximate inhibition constant (Ki) from pAC50.
+    This conversion is based on the assumption that there is negligible substrate concentration such that Ki ≈ AC50
 
     Args:
         pac50 (float): p(activity measure)
@@ -49,9 +50,14 @@ def pac50_to_ki(pac50:float) -> float:
     return 10 ** (-1 * pac50) * unit.molar
 
 
-def ki_to_dg(ki:unit.Quantity, temp_rxn:unit.Quantity = 298.15 * unit.kelvin) -> float:
+def ki_to_dg(ki:unit.Quantity, input_unit_str:str, temp_rxn:unit.Quantity = 298.15 * unit.kelvin) -> float:
     """A function to calculate Gibbs free energy (delta G, or dg) from p(activity measure).
     Final output is Gibbs free energy in units of kJ/mol
+
+    This calculation assumes that:
+    - Ki is the true thermodynamic dissociation constant
+    - Ideal solution
+    - Constant temperature
 
     Notes:
         The equation is G = RT ln(Ki) where
@@ -62,16 +68,34 @@ def ki_to_dg(ki:unit.Quantity, temp_rxn:unit.Quantity = 298.15 * unit.kelvin) ->
 
     Args:
         ki (float): inhibition or dissociation constant of a small molecule inhibitor to a protein anti-target
+        input_unit_str (str): string of molarity units, one of "M", "mM", "uM", "µM", or "nM"
         temp_rxn (float): temperature at which the reaction takes place, default is 25 C or 298.15 K
 
     Returns:
         float: Gibbs free energy (dg) in units of kJ/mol
     """
-    if ki > 0:
+    # First, convert the activity measure to proper molarity units
+    unit_map = {
+        "M": unit.molar,
+        "mM": unit.millimolar,
+        "µM": unit.micromolar,
+        "uM": unit.micromolar,
+        "nM": unit.nanomolar,
+    }
+
+    input_unit = unit_map.get(input_unit_str)
+
+    if input_unit is None:
+        raise ValueError(f"Unsupported molarity unit: {input_unit_str}. Must be one of {unit_map.keys()}.")
+
+    # Get activity with the appropriate molarity units
+    ki_m = (ki * input_unit).to(unit.molar)
+    
+    if ki_m > 0:
         dg = (
             unit.molar_gas_constant *
             temp_rxn.to(unit.kelvin) *
-            np.log(ki/unit.molar)
+            np.log(ki_m/unit.molar)
             ).to(unit.kilojoule_per_mole)
         return dg
     else:
