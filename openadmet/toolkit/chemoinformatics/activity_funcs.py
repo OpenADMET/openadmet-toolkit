@@ -90,7 +90,7 @@ def ki_to_dg(ki:unit.Quantity, input_unit_str:str, temp_rxn:unit.Quantity = 298.
 
     # Get activity with the appropriate molarity units
     ki_m = (ki * input_unit).to(unit.molar)
-    
+
     if ki_m > 0:
         dg = (
             unit.molar_gas_constant *
