@@ -1,7 +1,7 @@
 import pandas as pd
 import pytest
 
-from openadmet.toolkit.chemoinformatics.data_curation import ChEMBLProcessing, PubChemProcessing
+from openadmet.toolkit.chemoinformatics.data_curation import ChEMBLProcessing, PubChemProcessing, DataProcessing
 from openadmet.toolkit.tests.datafiles import chembl_file, pubchem_file
 
 
@@ -20,7 +20,7 @@ def test_chembl_inhib():
     df = chembl_inhib.process(chembl_file)
     assert all(pd.notna(df["Smiles"]))
     assert all(pd.notna(df["OPENADMET_CANONICAL_SMILES"]))
-    assert df["INCHIKEY"].is_unique
+    assert df["OPENADMET_INCHIKEY"].is_unique
 
 
 def test_chembl_react():
@@ -28,7 +28,7 @@ def test_chembl_react():
     df = chembl_react.process(chembl_file)
     assert all(pd.notna(df["Smiles"]))
     assert all(pd.notna(df["OPENADMET_CANONICAL_SMILES"]))
-    assert df["INCHIKEY"].is_unique
+    assert df["OPENADMET_INCHIKEY"].is_unique
 
 
 def test_pubchem_inhib():
@@ -36,7 +36,7 @@ def test_pubchem_inhib():
     df = pubchem_inhib.process(pubchem_file, "test1", "test2")
     assert all(pd.notna(df["Smiles"]))
     assert all(pd.notna(df["OPENADMET_CANONICAL_SMILES"]))
-    assert df["INCHIKEY"].is_unique
+    assert df["OPENADMET_INCHIKEY"].is_unique
 
 
 def test_pubchem_react():
@@ -44,4 +44,11 @@ def test_pubchem_react():
     df = pubchem_inhib.process(pubchem_file, "test1", "test2")
     assert all(pd.notna(df["Smiles"]))
     assert all(pd.notna(df["OPENADMET_CANONICAL_SMILES"]))
-    assert df["INCHIKEY"].is_unique
+    assert df["OPENADMET_INCHIKEY"].is_unique
+
+def test_single_processing():
+    data_process = DataProcessing()
+    df = data_process.read_file(pubchem_file)
+    df = data_process.standardize_smiles_and_convert(df, smiles_col="PUBCHEM_EXT_DATASOURCE_SMILES")
+    assert all(pd.notna(df["OPENADMET_CANONICAL_SMILES"]))
+    assert "OPENADMET_INCHIKEY" in df.columns
