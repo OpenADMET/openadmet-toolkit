@@ -39,19 +39,19 @@ class DataProcessing(BaseModel):
 
     def standardize_smiles_and_convert(self, data, smiles_col:str):
         """
-        Converts data to canonical smiles and determines inchikey
+        Converts data to canonical SMILES and determines InChI key
 
         Parameters
         ----------
         data : dataframe
-            compound activity data read in from a file
+            Compound activity data read in from a file
         smiles_col : str
-            a column with SMILES strings for canonicalization
+            A column with SMILES strings for canonicalization
 
         Returns
         -------
         dataframe
-            compound with added activity columns, OPENADMET_CANONICAL_SMILES and OPENADMET_INCHIKEY
+            Compound with added activity columns, OPENADMET_CANONICAL_SMILES and OPENADMET_INCHIKEY
 
         Raises
         ------
@@ -60,10 +60,8 @@ class DataProcessing(BaseModel):
         """
 
         if smiles_col in data.columns:
-            data["OPENADMET_CANONICAL_SMILES"] = data[smiles_col].apply(lambda x: canonical_smiles(x))
-            data["OPENADMET_INCHIKEY"] = data["OPENADMET_CANONICAL_SMILES"].apply(
-                lambda x: smiles_to_inchikey(x)
-                )
+            data["OPENADMET_CANONICAL_SMILES"] = data[smiles_col].apply(canonical_smiles)
+            data["OPENADMET_INCHIKEY"] = data["OPENADMET_CANONICAL_SMILES"].apply(smiles_to_inchikey)
             data.dropna(subset="OPENADMET_INCHIKEY", inplace=True)
         else:
             raise ValueError("The provided column is not in the data table!")
