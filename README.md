@@ -9,13 +9,16 @@ openadmet-toolkit
 
 [OpenADMET](https://openadmet.org/) toolkit for large scale ADMET modelling, focused around data scraping, cleaning, screening and preparation for downstream machine learning workflows.
 
-## NOTE:
-
-This repo is under very active development, we make no guarantees about stability or correctness.
+>[!NOTE]
+> This repo is under very active development, we make no guarantees about stability or correctness.
 
 ## Getting started
 
-See the documentation here: https://openadmet-toolkit.readthedocs.io/en/latest/
+>[!NOTE]
+> We are currently in development mode and are working on what our first release and documentation will look like, we hope to have something stable for people to try out in Q4 2025! 
+
+> When it is available, you will be able to read the documentation here: https://openadmet-toolkit.readthedocs.io/en/latest/, watch this space!
+
 
 ## List of available functionality
 
