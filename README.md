@@ -11,7 +11,7 @@ You should test your code, but do not feel compelled to use these specific progr
 Windows testing if you only plan to deploy on specific platforms. These are just to help you get started.
 
 >[!NOTE]
-> We are currently in development mode and are working on what our first release and documentation will look like, we hope to have something stable for people to try out in Q4 2025! 
+> We are currently in development mode and are working on what our first release and documentation will look like, we hope to have something stable for people to try out in Q4 2025!
 
 > When it is available, you will be able to read the documentation here: https://openadmet-toolkit.readthedocs.io/en/latest/, watch this space!
 
