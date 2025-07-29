@@ -12,7 +12,7 @@ tqdm.pandas()
 
 import datamol as dm
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from openadmet.toolkit.filtering.filter_base import BaseFilter, FilterOutput
 from typing import ClassVar
 
@@ -90,12 +90,12 @@ class SMARTSFilter(BaseFilter):
             mols = self.get_mols(smiles=smiles)
 
         matches = mols.apply(
-            lambda x: self.match_smarts_by_catalog(x, self.smarts_list, self.names_list)
+            lambda x: self._match_smarts_by_catalog(x, self.smarts_list, self.names_list)
         )
 
         return matches
 
-    def match_smarts_by_catalog(self, mol, smarts_list, names_list):
+    def _match_smarts_by_catalog(self, mol, smarts_list, names_list):
         """
         Match a molecule against a list of SMARTS patterns using a catalog.
         This method uses the `catalog_from_smarts` function to create a catalog
@@ -215,11 +215,11 @@ class ProximityFilter(BaseFilter):
             mols = self.set_mols(smiles=smiles)
 
         matches_a = mols.apply(
-                lambda x: self.match_smarts(x, self.smarts_list_a, self.names_list_a)
+                lambda x: self._match_smarts(x, self.smarts_list_a, self.names_list_a)
             )
 
         matches_b = mols.apply(
-                lambda x: self.match_smarts(x, self.smarts_list_b, self.names_list_b)
+                lambda x: self._match_smarts(x, self.smarts_list_b, self.names_list_b)
             )
 
         df = pd.DataFrame({
@@ -228,11 +228,11 @@ class ProximityFilter(BaseFilter):
             "col_b": matches_b
         })
 
-        inter_dists = df.progress_apply(self.get_min_dist, axis=1)
+        inter_dists = df.progress_apply(self._get_min_dist, axis=1)
 
         return inter_dists
 
-    def match_smarts(self, mol, smarts_list, names_list) -> dict:
+    def _match_smarts(self, mol, smarts_list, names_list) -> dict:
         """
         Match a molecule against a list of SMARTS patterns and return the matches.
         This method uses RDKit to create a Mol object from each SMARTS pattern
@@ -263,7 +263,7 @@ class ProximityFilter(BaseFilter):
 
         return matches
 
-    def get_min_dist(self, df_row) -> list:
+    def _get_min_dist(self, df_row) -> list:
         """
         Calculate the minimum distance between matches of two sets of SMARTS patterns
         for a given row in the DataFrame.
@@ -347,16 +347,16 @@ class pKaFilter(BaseFilter):
 
         if self.min_pka and self.max_pka:
             # filter for at least one pka between min_pka and max_pka
-            pkas_min_max = pkas.apply(lambda x: self.pkas_valid_range(x))
+            pkas_min_max = pkas.apply(self._pkas_valid_range)
 
         if self.min_unit_sep:
             # filter for pka values that are at least min_unit_sep apart
-            pkas_unit_sep = pkas_min_max.apply(lambda x : self.pka_separation(x, self.min_unit_sep))
+            pkas_unit_sep = pkas_min_max.apply(lambda x : self._pka_separation(x, self.min_unit_sep))
 
         return FilterOutput(values=pkas,
             passes=pkas_min_max & pkas_unit_sep)
 
-    def pkas_valid_range(self, pkas: list) -> bool:
+    def _pkas_valid_range(self, pkas: list) -> bool:
         """
         Check if at least one pKa value is within the specified range.
 
@@ -381,7 +381,7 @@ class pKaFilter(BaseFilter):
                 break
         return valid_range
 
-    def pka_separation(self, pkas: list, min_unit_sep: float) -> bool:
+    def _pka_separation(self, pkas: list, min_unit_sep: float) -> bool:
         """
         Check if all pKa values are separated by a minimum distance.
 
@@ -433,9 +433,25 @@ class DatamolFilter(BaseFilter):
                           'n_rotatable_bonds','n_aliphatic_rings','n_aromatic_rings','n_saturated_rings',
                           'n_radical_electrons','tpsa','qed','clogp','sas']
 
-    def __post_init__(self):
-        if self.name not in self.name_options:
-            raise ValueError(f"Descriptor name must be one of {self.name_options}.")
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, value):
+        """
+        Validate that the provided name is one of the allowed descriptor names.
+
+        Parameters
+        ----------
+        v : str
+            The descriptor name to validate.
+
+        Returns
+        -------
+        str
+            The validated descriptor name.
+        """
+        if value not in cls.name_options:
+            raise ValueError(f"Descriptor name must be one of {cls.name_options}.")
+        return value
 
     def filter(self,
                smiles:list) -> FilterOutput:
