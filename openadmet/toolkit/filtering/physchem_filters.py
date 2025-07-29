@@ -422,16 +422,11 @@ class DatamolFilter(BaseFilter):
         The minimum descriptor value for the filter.
     max_value : float
         The maximum descriptor value for the filter.
-    name_options : list, optional
-        A list of valid descriptor names. Default includes common physicochemical descriptors.
     """
 
     name: str = Field(description="Descriptor name to filter on.")
     min_value: float = Field(description="Minimum descriptor value for the filter.")
     max_value: float = Field(description="Maximum descriptor value for the filter.")
-    name_options: list = ['mw','fsp3','n_hba','n_hbd','n_rings','n_hetero_atoms','n_heavy_atoms',
-                          'n_rotatable_bonds','n_aliphatic_rings','n_aromatic_rings','n_saturated_rings',
-                          'n_radical_electrons','tpsa','qed','clogp','sas']
 
     @field_validator('name')
     @classmethod
@@ -439,18 +434,12 @@ class DatamolFilter(BaseFilter):
         """
         Validate that the provided name is one of the allowed descriptor names.
 
-        Parameters
-        ----------
-        v : str
-            The descriptor name to validate.
-
-        Returns
-        -------
-        str
-            The validated descriptor name.
         """
-        if value not in cls.name_options:
-            raise ValueError(f"Descriptor name must be one of {cls.name_options}.")
+        name_options = ['mw','fsp3','n_hba','n_hbd','n_rings','n_hetero_atoms','n_heavy_atoms',
+                          'n_rotatable_bonds','n_aliphatic_rings','n_aromatic_rings','n_saturated_rings',
+                          'n_radical_electrons','tpsa','qed','clogp','sas']
+        if value not in name_options:
+            raise ValueError(f"Descriptor name must be one of {name_options}.")
         return value
 
     def filter(self,
