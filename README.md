@@ -4,14 +4,16 @@ This directory contains a collection of tools for running Continuous Integration
 conda installation, and other development tools not directly related to the coding process.
 
 
-## Manifest
-
-### Continuous Integration
+>[!NOTE]
+> This repo is under very active development, we make no guarantees about stability or correctness.
 
 You should test your code, but do not feel compelled to use these specific programs. You also may not need Unix and
 Windows testing if you only plan to deploy on specific platforms. These are just to help you get started.
 
-### Conda Environment:
+>[!NOTE]
+> We are currently in development mode and are working on what our first release and documentation will look like, we hope to have something stable for people to try out in Q4 2025! 
+
+> When it is available, you will be able to read the documentation here: https://openadmet-toolkit.readthedocs.io/en/latest/, watch this space!
 
 This directory contains the files to setup the Conda environment for testing purposes
 
