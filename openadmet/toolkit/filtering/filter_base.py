@@ -56,7 +56,7 @@ class BaseFilter(BaseModel):
 
         Parameters
         ----------
-        smiles : list
+        smiles : list-like
             A list of SMILES strings to be filtered.
 
         Returns
@@ -73,7 +73,7 @@ class BaseFilter(BaseModel):
 
         Parameters
         ----------
-        smiles : list
+        smiles : list-like
             A list of SMILES strings.
 
         Returns
@@ -81,9 +81,7 @@ class BaseFilter(BaseModel):
         list
             A list of RDKit Mol objects corresponding to the SMILES strings.
         """
-        mols = smiles.apply(
-                lambda x: Chem.MolFromSmiles(x)
-            )
+        mols = smiles.apply(Chem.MolFromSmiles)
         return mols
 
     @staticmethod

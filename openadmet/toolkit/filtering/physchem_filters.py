@@ -45,7 +45,7 @@ class SMARTSFilter(BaseFilter):
 
         Parameters
         ----------
-        smiles : list
+        smiles : list-like
             A list of SMILES strings to be filtered.
 
         Returns
@@ -74,7 +74,7 @@ class SMARTSFilter(BaseFilter):
 
         Parameters
         ----------
-        smiles : list
+        smiles : list-like
             A list of SMILES strings to be filtered.
         mols : list, optional
             A list of RDKit Mol objects corresponding to the SMILES strings.
@@ -168,7 +168,7 @@ class ProximityFilter(BaseFilter):
 
         Parameters
         ----------
-        smiles : list
+        smiles : list-like
             A list of SMILES strings to be filtered.
 
         Returns
@@ -198,7 +198,7 @@ class ProximityFilter(BaseFilter):
 
         Parameters
         ----------
-        smiles : list
+        smiles : list-like
             A list of SMILES strings to be filtered.
         mols : list, optional
             A list of RDKit Mol objects corresponding to the SMILES strings.
@@ -447,7 +447,7 @@ class DatamolFilter(BaseFilter):
 
         Parameters
         ----------
-        smiles : list
+        smiles : list-like
             A list of SMILES strings to be filtered.
 
         Returns
@@ -480,7 +480,7 @@ class DatamolFilter(BaseFilter):
 
         Parameters
         ----------
-        smiles : list
+        smiles : list-like
             A list of SMILES strings to be filtered.
         mols : list, optional
             A list of RDKit Mol objects corresponding to the SMILES strings.
