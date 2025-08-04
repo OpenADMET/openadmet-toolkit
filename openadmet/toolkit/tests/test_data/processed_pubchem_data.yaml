@@ -1,0 +1,12 @@
+data:
+  ahr: # protein target name
+    resource: processed_ahr.parquet
+    smiles_col: PUBCHEM_EXT_DATASOURCE_SMILES # these keys are required but are not actually used if files are already processed
+    target_col: AhR Potency (uM) # these keys are required but are not actually used if files are already processed
+    activity_type: Potency # these keys are required but are not actually used if files are already processed
+
+  pxr:
+    resource: processed_pxr.parquet
+    smiles_col: PUBCHEM_EXT_DATASOURCE_SMILES # these keys are required but are not actually used if files are already processed
+    target_col: AhR Potency (uM) # these keys are required but are not actually used if files are already processed
+    activity_type: Potency # these keys are required but are not actually used if files are already processed

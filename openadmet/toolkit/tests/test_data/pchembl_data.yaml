@@ -1,0 +1,18 @@
+data:
+  cyp3a4: # protein target name
+    resource: ChEMBL_permissive_CYP3A4_CHEMBL340_raw.parquet # data file name
+    smiles_col: canonical_smiles # name of column with SMILES strings
+    target_col: pchembl_value # name of column with target activity
+    activity_type: standard_type # type of target activity
+
+  cyp1a2:
+    resource: ChEMBL_permissive_CYP1A2_CHEMBL3356_raw.parquet
+    smiles_col: canonical_smiles
+    target_col: pchembl_value
+    activity_type: standard_type
+
+  cyp2d6:
+    resource: ChEMBL_permissive_CYP2D6_CHEMBL289_raw.parquet
+    smiles_col: canonical_smiles
+    target_col: pchembl_value
+    activity_type: standard_type

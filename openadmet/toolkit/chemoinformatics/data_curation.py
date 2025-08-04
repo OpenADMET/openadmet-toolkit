@@ -76,7 +76,7 @@ class DataProcessing(BaseModel):
             data (dataframe): Dataframe containing all small molecule activity data for a target
             pac50_col (str): Name of column in dataframe with activity measure
             input_unit (str): Units of your activity measure, must be one of M, mM, uM, µM, nM
-            activity_type (str): Designate the type of activity, e.g. IC50, EC50, XC50, AC50, etc.
+            activity_type (str): Designate the type of activity, e.g. IC50, EC50, XC50, AC50, etc.; can be a column in the dataframe OR a user given string
 
         Raises:
             ValueError: An error checking if the column name provided is actually in the provided dataframe.
@@ -94,7 +94,10 @@ class DataProcessing(BaseModel):
                     return np.nan
 
             data["OPENADMET_LOGAC50"] = data[pac50_col].apply(safe_pac50)
-            data["OPENADMET_ACTIVITY_TYPE"] = f"p{activity_type}"
+            if activity_type in data.columns:
+                data["OPENADMET_ACTIVITY_TYPE"] = data[activity_type].apply(lambda x: f"p{x}")
+            else:
+                data["OPENADMET_ACTIVITY_TYPE"] = f"p{activity_type}"
         else:
             raise ValueError(f"Oospie-daisy! The provided activity column {pac50_col} is not in the dataframe!")
 
