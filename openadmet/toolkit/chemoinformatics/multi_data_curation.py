@@ -12,7 +12,7 @@ class MultiDataProcessing(DataProcessing):
     """
     Class for loading a yaml file which contains all the data files and relevant arguments for multitask processing.
     """
-    REQUIRED_KEYS: ClassVar[Set[str]] = {"resource", "smiles_col", "target_col", "activity_type"}
+    REQUIRED_KEYS: ClassVar[set[str]] = {"resource", "smiles_col", "target_col", "activity_type"}
 
     @classmethod
     def load_yaml(cls, path: str, **storage_options) -> list[dict[str, Any]]:
@@ -75,7 +75,7 @@ class MultiDataProcessing(DataProcessing):
             data_entries.append(spec)
 
         return data_entries
-    
+
     @classmethod
     def batch_process(cls, path:str, pchembl:bool, savefile:bool = False, outputdir:str = ''):
         """A function to process multiple compound activity data files from different target proteins for model training.
@@ -138,9 +138,9 @@ class MultiDataProcessing(DataProcessing):
             else:
                 # Get the optional value of input_unit if LOGAC50 needs to be calculated
                 input_unit = spec.get("input_unit", "M")
-                df = processor.get_pac50(df, 
-                                        pac50_col=spec["target_col"], 
-                                        input_unit=input_unit, 
+                df = processor.get_pac50(df,
+                                        pac50_col=spec["target_col"],
+                                        input_unit=input_unit,
                                         activity_type=spec["activity_type"])
 
             # Average the duplicates
@@ -231,7 +231,7 @@ class MultiDataProcessing(DataProcessing):
                 missing_cols = [x for x in keep_cols if x not in df.columns]
                 if missing_cols:
                     raise ValueError(f"Error! Missing required columns: {missing_cols}. Reprocess your data.")
-                
+
                 data[spec["target_name"]] = df
                 # Append the target name to OPENADMET_LOGAC50
                 for i in data:
@@ -251,6 +251,5 @@ class MultiDataProcessing(DataProcessing):
             if not os.path.exists(multioutputdir):
                 os.makedirs(multioutputdir)
             merged.to_parquet(os.path.join(multioutputdir, "multitask.parquet"), index=False)
-        
-        return merged
 
+        return merged
