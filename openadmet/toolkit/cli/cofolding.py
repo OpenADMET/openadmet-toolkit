@@ -1,15 +1,15 @@
 import click
 import pandas as pd
 
-from openadmet.toolkit.cofolding.boltz import Boltz1CoFoldingEngine
+from openadmet.toolkit.cofolding.boltz import BoltzCoFoldingEngine
 from openadmet.toolkit.cofolding.chai1 import Chai1CoFoldingEngine
 
 @click.command()
 @click.option(
     "--model",
-    type=click.Choice(["chai1", "boltz1"], case_sensitive=False),
-    default="boltz1",
-    help="Model to use for cofolding, must be one of boltz1 or chai1",
+    type=click.Choice(["chai1", "boltz"], case_sensitive=False),
+    default="boltz",
+    help="Model to use for cofolding, must be one of boltz or chai1",
     required=False
 )
 @click.option(
@@ -157,8 +157,8 @@ def cofolding(
 
     if any(diffusion_samples, recycling_steps, sampling_steps) != None and model == "chai1":
         raise ValueError("Diffusion samples, recycling steps, and sampling steps should be None for chai1 model")
-    if any(num_trunk_recycles, num_diffn_timesteps, use_esm_embeddings, seed) != None and model == "boltz1":
-        raise ValueError("Num trunk recycles, num diffusion timesteps, use esm embedding, seed should be None for boltz1 model")
+    if any(num_trunk_recycles, num_diffn_timesteps, use_esm_embeddings, seed) != None and model == "boltz":
+        raise ValueError("Num trunk recycles, num diffusion timesteps, use esm embedding, seed should be None for boltz model")
 
     # Initialize the cofolding engine
     if model == "chai1":
@@ -171,8 +171,8 @@ def cofolding(
             use_esm_embeddings=use_esm_embeddings,
             seed=seed,
         )
-    elif model == "boltz1":
-        cofolding_engine = Boltz1CoFoldingEngine(
+    elif model == "boltz":
+        cofolding_engine = BoltzCoFoldingEngine(
             output_dir=output_dir,
             device=device,
             use_msa_server=use_msa_server,
@@ -181,7 +181,7 @@ def cofolding(
             sampling_steps=sampling_steps,
         )
     else:
-        raise ValueError("Invalid model name. Choose either 'chai1' or 'boltz1'.")
+        raise ValueError("Invalid model name. Choose either 'chai1' or 'boltz'.")
 
     # Inference
     paths, scores = cofolding_engine.inference(
