@@ -1,7 +1,7 @@
 import click
 import pandas as pd
 
-from openadmet.toolkit.cofolding.boltz1 import Boltz1CoFoldingEngine
+from openadmet.toolkit.cofolding.boltz import Boltz1CoFoldingEngine
 from openadmet.toolkit.cofolding.chai1 import Chai1CoFoldingEngine
 
 @click.command()
