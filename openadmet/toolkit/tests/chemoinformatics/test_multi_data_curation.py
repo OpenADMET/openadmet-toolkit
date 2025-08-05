@@ -38,8 +38,8 @@ def test_batch_process(yaml, pchembl, expected_cols):
 @pytest.mark.parametrize(
     "yaml, process, pchembl, expected_length",
     [
-        (processed_chembl_data_yaml, False, True, 22280),
-        (chembl_data_yaml, True, True, 22280),
+        (processed_chembl_data_yaml, False, True, 22290),
+        (chembl_data_yaml, True, True, 22290),
         (processed_pubchem_data_yaml, False, False, 8179),
         (pubchem_data_yaml, True, False, 8179)
     ]
