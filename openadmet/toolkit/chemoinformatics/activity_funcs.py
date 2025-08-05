@@ -1,6 +1,7 @@
 import numpy as np
 from openff.units import unit
 
+
 def calculate_pac50(activity:float, input_unit_str:str) -> float:
     """A function to calculate pAC50 from an activity measure in units of molarity (M).
     Molarity can be in M, mM, uM, µM, or nM.
@@ -23,6 +24,7 @@ def calculate_pac50(activity:float, input_unit_str:str) -> float:
         "nM": unit.nanomolar,
     }
 
+
     input_unit = unit_map.get(input_unit_str)
 
     if input_unit is None:
@@ -30,7 +32,6 @@ def calculate_pac50(activity:float, input_unit_str:str) -> float:
 
     # Get activity with the appropriate molarity units
     activity_m = (activity * input_unit).to(unit.molar)
-
     # Now, we can calculate the pAC50 value
     if activity > 0:
         return -np.log10(activity_m.magnitude)
@@ -48,7 +49,6 @@ def pac50_to_ki(pac50:float) -> float:
         float: inhibition constant (Ki) in units of molarity (M)
     """
     return 10 ** (-1 * pac50) * unit.molar
-
 
 def ki_to_dg(ki:unit.Quantity, input_unit_str:str, temp_rxn:unit.Quantity = 298.15 * unit.kelvin) -> float:
     """A function to calculate Gibbs free energy (delta G, or dg) from p(activity measure).
