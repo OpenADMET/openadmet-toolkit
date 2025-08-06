@@ -77,7 +77,7 @@ class DataProcessing(BaseModel):
             This function will calculate the pAC50 value from an activity measure.
             This value will be used for future modeling prediction.
             Valid activity measures include but are not limited to: IC50, EC50, XC50, AC50, potency, etc.
-        
+
         Otherwise, if your activity measure is already log transformed, this function will simply rename the activity measure column to standard naming and create an activity type column
 
 
@@ -103,7 +103,7 @@ class DataProcessing(BaseModel):
                 except (ValueError, TypeError):
                     return np.nan
 
-            if transform: 
+            if transform:
                 data["OPENADMET_LOGAC50"] = data[ac50_col].apply(safe_pac50)
                 if activity_type in data.columns:
                     data["OPENADMET_ACTIVITY_TYPE"] = data[activity_type].apply(lambda x: f"p{x}")
