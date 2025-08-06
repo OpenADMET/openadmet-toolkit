@@ -1,9 +1,13 @@
 import pandas as pd
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, Any, ClassVar
 from rdkit import Chem
 from pathlib import Path
 import numpy as np
+import yaml
+import fsspec
+from functools import reduce
+import os
 
 from openadmet.toolkit.chemoinformatics.rdkit_funcs import canonical_smiles, smiles_to_inchikey
 from openadmet.toolkit.chemoinformatics.activity_funcs import calculate_pac50
@@ -67,16 +71,22 @@ class DataProcessing(BaseModel):
             raise ValueError("The provided column is not in the data table!")
         return data
 
-    def get_pac50(self, data, pac50_col:str, input_unit:str, activity_type:str):
-        """A function to calculate the pAC50 value from an activity measure.
-        This value will be used for future modeling prediction.
-        Valid activity measures include: IC50, EC50, XC50, AC50.
+    def standardize_pac50(self, data, transform:bool, ac50_col:str, activity_type:str, input_unit:str=''):
+        """A function to create two standard columns: OPENADMET_LOGAC50 and OPENADMET_ACTIVITY_TYPE.
+        If transform = True:
+            This function will calculate the pAC50 value from an activity measure.
+            This value will be used for future modeling prediction.
+            Valid activity measures include but are not limited to: IC50, EC50, XC50, AC50, potency, etc.
+        
+        Otherwise, if your activity measure is already log transformed, this function will simply rename the activity measure column to standard naming and create an activity type column
+
 
         Args:
             data (dataframe): Dataframe containing all small molecule activity data for a target
+            transform (bool): Whether or not perform the log transformation
             pac50_col (str): Name of column in dataframe with activity measure
             input_unit (str): Units of your activity measure, must be one of M, mM, uM, µM, nM
-            activity_type (str): Designate the type of activity, e.g. IC50, EC50, XC50, AC50, etc.; can be a column in the dataframe OR a user given string
+            activity_type (str): Designate the type of activity, e.g. IC50, EC50, XC50, AC50, etc.; can be a column in the dataframe OR any other string that is descriptive of the activity type
 
         Raises:
             ValueError: An error checking if the column name provided is actually in the provided dataframe.
@@ -85,7 +95,7 @@ class DataProcessing(BaseModel):
             dataframe: Two new columns added to provided dataframe: OPENADMET_LOGAC50 (pAC50) and OPENADMET_ACTIVITY_TYPE (type of activity measure)
         """
         # Check that column is in dataframe
-        if pac50_col in data.columns:
+        if ac50_col in data.columns:
             # If it is, check that the data type is correct
             def safe_pac50(x):
                 try:
@@ -93,17 +103,264 @@ class DataProcessing(BaseModel):
                 except (ValueError, TypeError):
                     return np.nan
 
-            data["OPENADMET_LOGAC50"] = data[pac50_col].apply(safe_pac50)
-            if activity_type in data.columns:
-                data["OPENADMET_ACTIVITY_TYPE"] = data[activity_type].apply(lambda x: f"p{x}")
+            if transform: 
+                data["OPENADMET_LOGAC50"] = data[ac50_col].apply(safe_pac50)
+                if activity_type in data.columns:
+                    data["OPENADMET_ACTIVITY_TYPE"] = data[activity_type].apply(lambda x: f"p{x}")
+                else:
+                    data["OPENADMET_ACTIVITY_TYPE"] = f"p{activity_type}"
             else:
-                data["OPENADMET_ACTIVITY_TYPE"] = f"p{activity_type}"
+                data["OPENADMET_LOGAC50"] = data[ac50_col].astype(float)
+                if activity_type in data.columns:
+                    data["OPENADMET_ACTIVITY_TYPE"] = data[activity_type].apply(lambda x: f"{x}")
+                else:
+                    data["OPENADMET_ACTIVITY_TYPE"] = f"{activity_type}"
         else:
-            raise ValueError(f"Oospie-daisy! The provided activity column {pac50_col} is not in the dataframe!")
-
+            raise ValueError(f"Oospie-daisy! The provided activity column {ac50_col} is not in the dataframe!")
         return data
 
+class MultiDataProcessing(DataProcessing):
+    """
+    Class for loading a yaml file which contains all the data files and relevant arguments for multitask processing.
+    """
+    _REQUIRED_KEYS: ClassVar[set[str]] = {"resource", "smiles_col", "target_col", "activity_type"}
 
+    @classmethod
+    def load_yaml(cls, path: str, **storage_options) -> list[dict[str, Any]]:
+        """Read in a YAML file containing all the relevant meta info for processing multiple data sets into a single for multitask modeling.
+
+        Parameters
+        ----------
+        path : str
+            Path to the yaml file containing the metadata for data files, column arguments, etc.
+
+        Returns
+        -------
+        list[dict[str, Any]]
+            List of dictionaries of key-value pairs from the yaml file.
+
+        Raises
+        ------
+        ValueError
+            YAML file must contain a top-level 'data' key.
+        ValueError
+            Each protein target MUST have the following keys:
+                resource: path to data file, can be .csv, .tsv, .xls, .xlsx, .parquet
+                smiles_col: the name of the column containing SMILES strings
+                target_col: the name of the column containing the target value, i.e. activity measure (e.g. IC50, EC50, Ki, etc.)
+                activity_type: the name of the column containing the type of activity (e.g. IC50, EC50, Ki, etc.) OR manually provide the type of activity as a string
+        ValueError
+            Value cannot be empty for the above required keys
+        """
+        path = Path(path)
+        # Open file stream
+        with fsspec.open(path, "r", **storage_options) as stream:
+            # Safe load the model from stream
+            content = yaml.safe_load(stream)
+
+        if not isinstance(content, dict) or "data" not in content:
+            raise ValueError("YAML file must contain a top-level 'data' key.")
+
+        data_entries = []
+        yaml_dir = path.parent.resolve()
+
+        for target_name, spec in content["data"].items():
+            # Convert resource path to absolute (resolved relative to YAML location)
+            if "resource" in spec:
+                resource_path = Path(spec["resource"])
+                if not resource_path.is_absolute():
+                    spec["resource"] = str((yaml_dir / resource_path).resolve())
+
+            # Ensure all required keys are present
+            missing_keys = cls._REQUIRED_KEYS - spec.keys()
+            if missing_keys:
+                raise ValueError(f"Target '{target_name}' is missing required keys: {missing_keys}")
+
+            # Validate non-empty values for all keys except "activity_type"
+            for key in cls._REQUIRED_KEYS - {"activity_type"}:
+                if spec.get(key) in (None, ""):
+                    raise ValueError(f"Target '{target_name}' has empty value for key: '{key}'")
+
+            # Add the validated spec as a dictionary with target_name included
+            spec["target_name"] = target_name
+            data_entries.append(spec)
+
+        return data_entries
+
+    @classmethod
+    def batch_process(cls, path:str, log_transform:bool, savefile:bool = False, outputdir:str = ''):
+        """A function to process multiple compound activity data files from different target proteins for model training.
+
+        Example use: You have a set of files of compound activity data for various protein targets.
+        1) Create a "data.yaml" file that refers to various information that is necessary for data processing with the below structure:
+            data:
+                cyp2j2: # protein target name, must be unique in YAML file if listing multiple data files
+                    resource: processed_full/processed_cyp2j2.parquet # path/to/datafile
+                    smiles_col: smiles # column name containing SMILES strings for canonicalization
+                    target_col: pchembl_value # column name containing target value for modeling prediction, usually the activity measure
+                    activity_type: standard_type # EITHER 1) column name containing the specific activity measure or 2) string containing the type of activity measure, one of (EC50, IC50, XC50, AC50)
+                    input_unit: M # [OPTIONAL] the units of the activity measure, one of ("M", "mM", "uM", "µM", or "nM"), necessary if you are not using pchembl values and need to calculate OPENAMDET_LOGAC50
+
+        2) To curate the data, an example call is:
+            data_dict = MultiDataProcessing.batch_process(path="data.yaml", pchembl=True, savefile=True, outputdir="processed_ic50")
+
+        Parameters
+        ----------
+        path : str
+            Path to the yaml file containing the metadata for data files, column arguments, etc.
+        log_transform : bool
+            Whether or not the activity measures need log transformation. E.g. if using pchembl values, the activity measure is already log transformed. True if yes, False if not.
+        savefile : bool, Optional
+            Whether or not to save the processed files, defaults to False.
+        outdir : str, Optional
+            Directory to save the processed files if savefile is True. If the directory does not already exist, it will be created.
+
+        Returns
+        -------
+        dict
+            Cleaned and processed dataframes for modeling, each exported to parquet.
+        """
+
+        keep_cols = [
+            "OPENADMET_INCHIKEY",
+            "OPENADMET_CANONICAL_SMILES",
+            "OPENADMET_LOGAC50",
+            "OPENADMET_ACTIVITY_TYPE"
+        ]
+
+        # Get the data files and arguments
+        data_specs = cls.load_yaml(path)
+        # Instantiate the DataProcessing
+        processor = cls()
+
+        # Make a dictionary to store the processed dataframes
+        data_dict = {}
+
+        for spec in data_specs:
+            # Read in the file
+            df = processor.read_file(spec["resource"])
+
+            # Make all the relevant columns
+            df = processor.standardize_smiles_and_convert(df, smiles_col=spec["smiles_col"])
+
+            input_unit = spec.get("input_unit", "M")
+            df = processor.standardize_pac50(df,
+                                             ac50_col=spec["target_col"],
+                                             transform=log_transform,
+                                             activity_type=spec["activity_type"],
+                                             input_unit=input_unit
+                                             )
+
+            # Average the duplicates
+            clean_df = (
+                df[keep_cols]
+                .groupby("OPENADMET_INCHIKEY", as_index=False)
+                .agg({
+                    "OPENADMET_CANONICAL_SMILES": "first",
+                    "OPENADMET_LOGAC50": "mean",
+                    "OPENADMET_ACTIVITY_TYPE": "first"
+                })
+            )
+
+            data_dict[spec["target_name"]] = clean_df
+
+            if savefile:
+                # Check that the directory exists, if not create it
+                if not os.path.exists(outputdir):
+                    os.makedirs(outputdir)
+                clean_df.to_parquet(os.path.join(outputdir, f"processed_{spec['target_name']}.parquet"), index=False)
+        return data_dict
+
+    @classmethod
+    def multitask_process(cls, path:str, process:bool, log_transform:bool, savemultifile:bool, multioutputdir:str = ''):
+        """A function to process multiple compound activity data files from different target proteins into a SINGLE file for multitask model training.
+
+        This function can curate raw data files if process = True and then concatenate the processed files for multitasking. If your data files are already curated, this function can do just multitask concatenation with process = False.
+
+        Example use: You have a set of files of compound activity data for various protein targets.
+        1) Create a "data.yaml" file that refers to various information that is necessary for data processing with the below structure:
+            data:
+                cyp2j2: # protein target name, must be unique in YAML file if listing multiple data files
+                    resource: processed_full/processed_cyp2j2.parquet # path/to/datafile
+                    smiles_col: smiles # column name containing SMILES strings for canonicalization
+                    target_col: pchembl_value # column name containing target value for modeling prediction, usually the activity measure
+                    activity_type: standard_type # EITHER 1) column name containing the specific activity measure or 2) string containing the type of activity measure, one of (EC50, IC50, XC50, AC50)
+                    input_unit: M # [OPTIONAL] the units of the activity measure, one of ("M", "mM", "uM", "µM", or "nM"), necessary if you are not using pchembl values and need to calculate OPENAMDET_LOGAC50
+
+        2) To curate the data, an example call is:
+        data_dict = MultiDataProcessing.multitask_process(path="data.yaml", pchembl=True, savemultifile=True, multioutputdir="multitask_ic50")
+
+        Parameters
+        ----------
+        path : str
+            Path to the yaml file containing the metadata for data files, column arguments, etc.
+        process: bool
+            Whether or not to process the data files or simply combine already processed files.
+        log_transform : bool
+            Whether or not the activity measures need log transformation. E.g. if using pchembl values, the activity measure is already log transformed. True if yes, False if not.
+        savemultifile : bool
+            Whether or not to save the multitask file.
+        multioutputdir : str
+            Directory to save the processed files if savefile is True. If the directory does not already exist, it will be created.
+
+        Returns
+        -------
+        pd.DataFrame
+            Merged and cleaned dataframe of compound activity data for multitask modeling
+        """
+
+        if process:
+            data = cls.batch_process(path=path, log_transform=log_transform)
+
+            # Append the target name to OPENADMET_LOGAC50
+            for i in data:
+                data[i] = data[i].rename(columns = {"OPENADMET_LOGAC50": f"OPENADMET_LOGAC50_{i}", "OPENADMET_ACTIVITY_TYPE": f"OPENADMET_ACTIVITY_TYPE_{i}"})
+        else:
+            # Get the data files and arguments
+            data_specs = cls.load_yaml(path)
+            # Instantiate the DataProcessing
+            processor = cls()
+
+            # Make a dict to store the data
+            data = {}
+
+            for spec in data_specs:
+                # Read in the file
+                df = processor.read_file(spec["resource"])
+
+                # Check that df has all the right columns
+                keep_cols = [
+                    "OPENADMET_INCHIKEY",
+                    "OPENADMET_CANONICAL_SMILES",
+                    "OPENADMET_LOGAC50",
+                    "OPENADMET_ACTIVITY_TYPE"
+                ]
+
+                missing_cols = [x for x in keep_cols if x not in df.columns]
+                if missing_cols:
+                    raise ValueError(f"Error! Missing required columns: {missing_cols}. Reprocess your data.")
+
+                data[spec["target_name"]] = df
+                # Append the target name to OPENADMET_LOGAC50
+                for i in data:
+                    data[i] = data[i].rename(columns = {"OPENADMET_LOGAC50": f"OPENADMET_LOGAC50_{i}", "OPENADMET_ACTIVITY_TYPE": f"OPENADMET_ACTIVITY_TYPE_{i}"})
+
+        data_list = list(data.values())
+
+        merged = reduce(
+            lambda left, right: pd.merge(
+                left, right, on = ["OPENADMET_INCHIKEY", "OPENADMET_CANONICAL_SMILES"],
+                how = "outer"
+            ),
+            data_list
+        )
+
+        if savemultifile:
+            if not os.path.exists(multioutputdir):
+                os.makedirs(multioutputdir)
+            merged.to_parquet(os.path.join(multioutputdir, "multitask.parquet"), index=False)
+
+        return merged
 
 class CSVProcessing(BaseModel):
     """
