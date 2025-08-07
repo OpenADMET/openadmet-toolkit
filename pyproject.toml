@@ -62,7 +62,7 @@ where = ["."]
 
 # Ref https://setuptools.pypa.io/en/latest/userguide/datafiles.html#package-data
 [tool.setuptools.package-data]
-"openadmet.toolkit.tests.test_data" = ["*.csv", "*.json", "*.yaml"]
+"openadmet.toolkit.tests.test_data" = ["*.csv", "*.json", "*.yaml", "*.parquet"]
 
 [tool.versioningit]
 default-version = "1+unknown"

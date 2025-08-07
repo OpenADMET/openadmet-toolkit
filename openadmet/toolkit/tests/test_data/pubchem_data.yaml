@@ -1,0 +1,14 @@
+data:
+  ahr: # protein target name
+    resource: ahr_AID_743122_datatable.csv # data file name
+    smiles_col: PUBCHEM_EXT_DATASOURCE_SMILES # name of column with SMILES strings
+    target_col: AhR Potency (uM) # name of column with target activity
+    activity_type: Potency # type of target activity, can be column name or string
+    input_unit: uM # units of target activity
+
+  pxr:
+    resource: pxr_AID_1347033_datatable.csv
+    smiles_col: PUBCHEM_EXT_DATASOURCE_SMILES
+    target_col: Agonist Potency (uM)
+    activity_type: Potency
+    input_unit: uM
