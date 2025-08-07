@@ -84,7 +84,7 @@ class DataProcessing(BaseModel):
         Args:
             data (dataframe): Dataframe containing all small molecule activity data for a target
             transform (bool): Whether or not perform the log transformation
-            pac50_col (str): Name of column in dataframe with activity measure
+            ac50_col (str): Name of column in dataframe with activity measure
             input_unit (str): Units of your activity measure, must be one of M, mM, uM, µM, nM
             activity_type (str): Designate the type of activity, e.g. IC50, EC50, XC50, AC50, etc.; can be a column in the dataframe OR any other string that is descriptive of the activity type
 
