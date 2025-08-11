@@ -231,7 +231,7 @@ class ChEMBLTargetCuratorBase(ChEMBLCuratorBase):
                 f"Invalid standard type: {value}. Allowed values: {allowed_standard_types}"
             )
         return value
-    
+
 
     @field_validator("require_units")
     def check_require_units(cls, value):
@@ -262,7 +262,7 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
                 )
 
         return self
-    
+
     def get_templated_query(self) -> str:
         template_str = """
         -- Get all the activity data for a given target using its ChEMBL ID.
@@ -408,7 +408,7 @@ class SemiQuantChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         )
 
         return query
-    
+
 
 
 class MICChEMBLCurator(ChEMBLCuratorBase):
@@ -618,8 +618,8 @@ class LogPDCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = '{{ standard_type }}' and
-        assay_type = 'Physicochemical' and 
-        bao_format = 'BAO_0000100' 
+        assay_type = 'Physicochemical' and
+        bao_format = 'BAO_0000100'
         -- BAO_0000100 is the format for small molecule physicochemical properties
         """
 
@@ -628,7 +628,7 @@ class LogPDCurator(ChEMBLCuratorBase):
         template = Template(query)
         query = template.render(standard_type=self.standard_type)
         return query
-    
+
 class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
     """
     Curator for microsomal  data from ChEMBL.
@@ -716,7 +716,7 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
         template = Template(query)
         query = template.render(organism=self.organism, standard_type=self.standard_type, require_units=self.require_units)
         return query
-    
+
 
 class PPBChEMBLCurator(ChEMBLCuratorBase):
     """
