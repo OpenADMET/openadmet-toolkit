@@ -75,7 +75,7 @@ class BoltzCoFoldingEngine(CoFoldingEngine):
             # make seperate tempdir for fasta
             fasta_path = tmpdirname / f"input_{protein_name}.fasta"
 
-            with open(fasta, "r") as fin, open(fasta_path, "w") as fout:
+            with open(fasta) as fin, open(fasta_path, "w") as fout:
                 fout.write(fin.read())
 
             args = ["boltz", "predict",

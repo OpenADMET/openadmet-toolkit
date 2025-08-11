@@ -141,7 +141,7 @@ def cofolding(
     # Check if input_csv and fastas are provided
     if input_csv is None and fastas is None:
         raise ValueError("Either input_csv or input_yaml or fastas must be provided")
-    
+
     # Check that only one of input_csv, input_yaml, or fastas is provided
     if input_csv is not None and fastas is not None:
         raise ValueError("Provide only one of input_csv, input_yaml, or fastas.")
