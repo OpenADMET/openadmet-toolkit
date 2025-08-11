@@ -16,35 +16,35 @@ from openadmet.toolkit.cofolding.chai1 import Chai1CoFoldingEngine
     "--input_csv",
     type=click.Path(exists=True),
     default=None,
-    help="Input CSV file containing fasta files and protein names",
+    help="Input CSV file containing fasta files and protein names for cofolding",
     required=False,
 )
 @click.option(
     "--fasta_column",
     type=str,
     default="fasta",
-    help="Column name in the input CSV file containing fasta files",
+    help="Column name in the input CSV file containing fasta files for cofolding",
     required=False,
 )
 @click.option(
     "--protein_name_column",
     type=str,
     default="protein_name",
-    help="Column name in the input CSV file containing protein names",
+    help="Column name in the input CSV file containing protein names for cofolding",
     required=False,
 )
 @click.option(
     "--fastas",
     default=None,
     multiple=True,
-    help="Fasta file or list of fasta files",
-    required=True,
+    help="Fasta file or list of fasta files for cofolding",
+    required=False,
 )
 @click.option(
     "--protein_names",
     default=None,
     multiple=True,
-    help="Protein names, by default None",
+    help="Protein names for cofolding, by default None",
 )
 @click.option(
     "--output_dir",
@@ -63,7 +63,7 @@ from openadmet.toolkit.cofolding.chai1 import Chai1CoFoldingEngine
 @click.option(
     "--use_msa_server",
     type=click.BOOL,
-    default=False,
+    default=True,
     help="Use MSA server for multiple sequence alignment",
     required=False,
 )
@@ -140,10 +140,11 @@ def cofolding(
 
     # Check if input_csv and fastas are provided
     if input_csv is None and fastas is None:
-        raise ValueError("Either input_csv or fastas must be provided")
-    # Check that only input_csv or fastas is provided
+        raise ValueError("Either input_csv or input_yaml or fastas must be provided")
+    
+    # Check that only one of input_csv, input_yaml, or fastas is provided
     if input_csv is not None and fastas is not None:
-        raise ValueError("Cannot provide both input_csv and fastas")
+        raise ValueError("Provide only one of input_csv, input_yaml, or fastas.")
 
     # Check if input_csv is provided and read the fasta files and protein names from it
     if input_csv is not None:
@@ -154,11 +155,6 @@ def cofolding(
     # Check if protein_names and fastas are of the same length
     if protein_names is not None and len(fastas) != len(protein_names):
         raise ValueError("Length of fasta and protein_name should be the same")
-
-    if any(diffusion_samples, recycling_steps, sampling_steps) != None and model == "chai1":
-        raise ValueError("Diffusion samples, recycling steps, and sampling steps should be None for chai1 model")
-    if any(num_trunk_recycles, num_diffn_timesteps, use_esm_embeddings, seed) != None and model == "boltz":
-        raise ValueError("Num trunk recycles, num diffusion timesteps, use esm embedding, seed should be None for boltz model")
 
     # Initialize the cofolding engine
     if model == "chai1":
@@ -171,6 +167,7 @@ def cofolding(
             use_esm_embeddings=use_esm_embeddings,
             seed=seed,
         )
+
     elif model == "boltz":
         cofolding_engine = BoltzCoFoldingEngine(
             output_dir=output_dir,
