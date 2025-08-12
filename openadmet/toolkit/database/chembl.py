@@ -615,7 +615,7 @@ class LogPDCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = '{{ standard_type }}' and
-        bao_format = 'BAO_0000100' 
+        bao_format = 'BAO_0000100'
         -- BAO_0000100 is the format for small molecule physicochemical properties
         """
 
@@ -624,7 +624,7 @@ class LogPDCurator(ChEMBLCuratorBase):
         template = Template(query)
         query = template.render(standard_type=self.standard_type)
         return query
-    
+
 
 class pKaCurator(ChEMBLCuratorBase):
     """
@@ -689,12 +689,12 @@ class pKaCurator(ChEMBLCuratorBase):
         """
 
 
-        # Render the query in Python 
+        # Render the query in Python
 
         template = Template(query)
         query = template.render()
         return query
-    
+
 class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
     """
     Curator for microsomal  data from ChEMBL.
