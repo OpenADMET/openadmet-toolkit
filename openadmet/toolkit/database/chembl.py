@@ -231,7 +231,7 @@ class ChEMBLTargetCuratorBase(ChEMBLCuratorBase):
                 f"Invalid standard type: {value}. Allowed values: {allowed_standard_types}"
             )
         return value
-    
+
 
     @field_validator("require_units")
     def check_require_units(cls, value):
@@ -262,7 +262,7 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
                 )
 
         return self
-    
+
     def get_templated_query(self) -> str:
         template_str = """
         -- Get all the activity data for a given target using its ChEMBL ID.
@@ -408,7 +408,7 @@ class SemiQuantChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         )
 
         return query
-    
+
 
 
 class MICChEMBLCurator(ChEMBLCuratorBase):
@@ -781,7 +781,7 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
         template = Template(query)
         query = template.render(organism=self.organism, standard_type=self.standard_type, require_units=self.require_units)
         return query
-    
+
 
 class PPBChEMBLCurator(ChEMBLCuratorBase):
     """
