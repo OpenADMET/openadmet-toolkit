@@ -443,7 +443,6 @@ class MICChEMBLCurator(ChEMBLCuratorBase):
         pchembl_value                        as pchembl_value,
         molecule_dictionary.pref_name        as compound_name,
         activities.standard_type             as standard_type,
-        activities.bao_endpoint              as bao_endpoint,
         assays.description                   as assay_description,
         assays.assay_organism                as assay_organism,
         assays.assay_strain                  as assay_strain,
@@ -512,7 +511,6 @@ class HepatotoxicityChEMBLCurator(ChEMBLCuratorBase):
         pchembl_value                        as pchembl_value,
         molecule_dictionary.pref_name        as compound_name,
         activities.standard_type             as standard_type,
-        activities.bao_endpoint              as bao_endpoint,
         assays.description                   as assay_description,
         assays.assay_organism                as assay_organism,
         assays.assay_strain                  as assay_strain,
@@ -590,7 +588,6 @@ class LogPDCurator(ChEMBLCuratorBase):
         pchembl_value                        as pchembl_value,
         molecule_dictionary.pref_name        as compound_name,
         activities.standard_type             as standard_type,
-        activities.bao_endpoint              as bao_endpoint,
         assays.description                   as assay_description,
         assays.assay_organism                as assay_organism,
         assays.assay_strain                  as assay_strain,
@@ -618,7 +615,6 @@ class LogPDCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = '{{ standard_type }}' and
-        assay_type = 'Physicochemical' and 
         bao_format = 'BAO_0000100' 
         -- BAO_0000100 is the format for small molecule physicochemical properties
         """
@@ -627,6 +623,76 @@ class LogPDCurator(ChEMBLCuratorBase):
         # Render the query in Python
         template = Template(query)
         query = template.render(standard_type=self.standard_type)
+        return query
+    
+
+class pKaCurator(ChEMBLCuratorBase):
+    """
+    Curator for pKa data from ChEMBL.
+
+    This class provides methods to curate pKa data from the ChEMBL database.
+    """
+
+
+
+    def get_templated_query(self) -> str:
+        """
+        Get the templated query for the LogP/D data to pull from the ChEMBL database.
+        """
+        query = """
+        select
+        activities.assay_id                  as assay_id,
+        activities.doc_id                    as doc_id,
+        activities.standard_value            as standard_value,
+        activities.standard_relation         as standard_relation,
+        activities.standard_type             as standard_type,
+        activities.standard_units            as standard_units,
+        activities.activity_comment         as activity_comment,
+        activities.bao_endpoint              as bao_endpoint,
+        molecule_hierarchy.parent_molregno   as molregno,
+        compound_structures.canonical_smiles as canonical_smiles,
+        compound_structures.standard_inchi_key as standard_inchi_key,
+        target_dictionary.tid                as tid,
+        target_dictionary.chembl_id          as target_chembl_id,
+        pchembl_value                        as pchembl_value,
+        molecule_dictionary.pref_name        as compound_name,
+        activities.standard_type             as standard_type,
+        assays.description                   as assay_description,
+        assays.assay_organism                as assay_organism,
+        assays.assay_strain                  as assay_strain,
+        assays.assay_tissue                  as assay_tissue,
+        assays.assay_type                    as assay_type,
+        assays.assay_cell_type               as assay_cell_type,
+        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+        assays.variant_id                    as variant_id,
+        assays.confidence_score             as confidence_score,
+        assays.bao_format                   as bao_format,
+        docs.year                            as doc_year,
+        docs.journal                         as doc_journal,
+        docs.doi                             as doc_doi,
+        docs.title                           as doc_title,
+        docs.authors                         as doc_authors,
+        docs.abstract                        as doc_abstract,
+        docs.patent_id                       as doc_patent_id,
+        docs.pubmed_id                       as doc_pubmed_id,
+        docs.chembl_release_id               as doc_chembl_release_id
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join docs ON activities.doc_id = docs.doc_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where activities.standard_type = 'pKa' and
+        bao_format = 'BAO_0000100'
+        -- BAO_0000100 is the format for small molecule physicochemical properties
+        """
+
+
+        # Render the query in Python 
+
+        template = Template(query)
+        query = template.render()
         return query
     
 class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
@@ -677,7 +743,6 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
         pchembl_value                        as pchembl_value,
         molecule_dictionary.pref_name        as compound_name,
         activities.standard_type             as standard_type,
-        activities.bao_endpoint              as bao_endpoint,
         assays.description                   as assay_description,
         assays.assay_organism                as assay_organism,
         assays.assay_strain                  as assay_strain,
@@ -749,7 +814,6 @@ class PPBChEMBLCurator(ChEMBLCuratorBase):
         pchembl_value                        as pchembl_value,
         molecule_dictionary.pref_name        as compound_name,
         activities.standard_type             as standard_type,
-        activities.bao_endpoint              as bao_endpoint,
         assays.description                   as assay_description,
         assays.assay_organism                as assay_organism,
         assays.assay_strain                  as assay_strain,
