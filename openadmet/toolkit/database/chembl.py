@@ -770,7 +770,6 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = '{{ standard_type }}' and
-        assay_type in ('SUBCELLULAR', 'ADMET') and
         bao_format = 'BAO_0000251'
         -- BAO_0000251 is the format for microsomal assays
         {% if organism %}and assays.assay_organism = '{{ organism }}' {% endif %}
