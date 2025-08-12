@@ -7,7 +7,9 @@ import chembl_downloader
 import datamol as dm
 import duckdb
 import pandas as pd
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
+from jinja2 import Template
+
 
 from openadmet.toolkit.chemoinformatics.rdkit_funcs import canonical_smiles, smiles_to_inchikey
 
@@ -98,8 +100,7 @@ class ChEMBLDatabaseConnector(BaseModel):
         self.connection.sql(sql)
 
 
-class ChEMBLTargetCuratorBase(BaseModel):
-    chembl_target_id: str = Field(..., description="ChEMBL target ID.")
+class ChEMBLCuratorBase(BaseModel):
     chembl_version: int = Field(34, description="Version of the ChEMBL database.")
     _chembl_connector: Optional[ChEMBLDatabaseConnector] = None
 
@@ -109,341 +110,20 @@ class ChEMBLTargetCuratorBase(BaseModel):
             version=self.chembl_version
         )
 
-    @abc.abstractmethod
-    def get_activity_data(
-        self, return_as: str = "df"
-    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
-        """Get the activity data for a given target using its ChEMBL ID."""
-        pass
 
     @abc.abstractmethod
-    def aggregate_activity_data_by_compound(self) -> pd.DataFrame:
-        """Get the activity data for a given target using its ChEMBL ID, grouped by compound."""
-        pass
-
-
-class HighQualityChEMBLTargetCurator(ChEMBLTargetCuratorBase):
-    """
-    Implement ChEMBL curation for a given protein target.
-
-    Curation rules are taken from https://pubs.acs.org/doi/10.1021/acs.jcim.4c00049
-    with accompanying code here: https://github.com/rinikerlab/overlapping_assays/tree/main
-
-    Thank you @greglandrum!
-    """
-
-    standard_type: Optional[str] = Field(
-        None,
-        description="Select a single Standard type of the ChEMBL data (IC50, Ki, Kd, EC50).",
-    )
-    min_assay_size: int = Field(10, description="Minimum assay size to be considered.")
-    max_assay_size: int = Field(
-        10000, description="Maximum assay size to be considered."
-    )
-    only_docs: bool = Field(
-        True, description="Consider only assays with associated documents."
-    )
-    remove_mutants: bool = Field(
-        True, description="Remove assays with mutant targets as best as possible."
-    )
-    only_high_confidence: bool = Field(
-        True, description="Consider only high confidence assays >= 9"
-    )
-    extra_filter: Optional[str] = Field(
-        None,
-        description="Extra filters to apply to the query, single word OR matching against assay description.",
-    )
-    landrum_curation: bool = Field(
-        True, description="Apply the maximum curation rules from the Landrum paper."
-    )
-    landrum_activity_curation: bool = Field(
-        False, description="curation of activity data according to Landrum rules."
-    )
-    landrum_no_duplicate_docs: bool = Field(
-        False, description="Remove assays with duplicate documents."
-    )
-    landrum_overlap_min: int = Field(
-        0, description="Minimum overlap between assays to be considered."
-    )
-
-    @field_validator("standard_type")
-    def check_in_allowed_standard_types(cls, value):
-        allowed_standard_types = ["IC50", "Ki", "Kd", "EC50"]
-        if value not in allowed_standard_types:
-            raise ValueError(
-                f"Invalid standard type: {value}. Allowed values: {allowed_standard_types}"
-            )
-        return value
-
-    def get_high_quality_assays_for_target(
-        self, return_as: str = "df"
-    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
+    def get_templated_query(self) -> str:
         """
-        Get the high quality assays for a given target using its ChEMBL ID.
-
-        Parameters
-        ----------
-        return_as: str
-            Return the data as a DataFrame or a DuckDB relation.
+        Get the templated query for the data to pull from the ChEMBL database.
+        This should be implemented by subclasses to return a valid SQL query string.
         """
-        # first we get the assays for the target using a resonable level of curation.
-        query = f"""
-            drop table if exists temp_assay_data;
-            create temporary table temp_assay_data as
-            select assay_id,assays.chembl_id assay_chembl_id,description,tid,targets.chembl_id target_chembl_id,\
-            count(distinct(molregno)) molcount,pref_name,assays.doc_id doc_id,docs.year doc_date,variant_id, \
-            assays.confidence_score, standard_type \
-            from activities  \
-            join assays using(assay_id)  \
-            join docs on (assays.doc_id = docs.doc_id)  \
-            join target_dictionary as targets using (tid) \
-            where pchembl_value is not null   \
-            and standard_type is not null \
-            and standard_units = 'nM'  \
-            and data_validity_comment is null  \
-            and standard_relation = '=' \
-            and target_type = 'SINGLE PROTEIN' \
-            and target_chembl_id = '{self.chembl_target_id}' \
-            group by (assay_id,assays.chembl_id,description,tid,targets.chembl_id,pref_name,\
-            assays.doc_id,docs.year,variant_id, assays.confidence_score, standard_type) \
-            order by molcount desc;
-            """
 
-        self._chembl_connector.sql(query)
-
-        # if we want a single standard type, we can filter it here
-        if self.standard_type:
-            query = f"""
-            delete from temp_assay_data where standard_type != '{self.standard_type}';
-            """
-            self._chembl_connector.sql(query)
-
-        # remove assays without documents
-        if self.only_docs:
-            query = """
-            delete from temp_assay_data where doc_date is null;
-            """
-            self._chembl_connector.sql(query)
-
-        # remove mutants
-        if self.remove_mutants:
-            query = """
-                    delete from temp_assay_data where variant_id is not null or lower(description) like '%mutant%' \
-                    or lower(description) like '%mutation%' or lower(description) like '%variant%';
-            """
-
-            self._chembl_connector.sql(query)
-
-        # remove low confidence assays
-        if self.only_high_confidence:
-            query = """
-            delete from temp_assay_data where confidence_score < 9;
-            """
-            self._chembl_connector.sql(query)
-
-        # apply extra filter if provided
-        if self.extra_filter:
-            query = f"""
-            delete from temp_assay_data where lower(description) not like '%{self.extra_filter}%';
-            """
-            self._chembl_connector.sql(query)
-
-        # okay now find goldilocks zone assays between min and max assay size
-        query = f"""
-        delete from temp_assay_data where molcount >= {self.min_assay_size} and molcount <= {self.max_assay_size};
-        """
-        self._chembl_connector.sql(query)
-
-        # get the final data
-        query = """
-        select * from temp_assay_data;
-        """
-        return self._chembl_connector.query(query, return_as=return_as)
 
     def get_activity_data(
         self, return_as: str = "df"
     ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
-        """
-        Get the high quality activity data for a given target using its ChEMBL ID.
-        """
-        hq_assays = self.get_high_quality_assays_for_target(return_as="duckdb")
-        # get all the activity data for the target
-        query = f"""
-        select
-        activities.assay_id                  as assay_id,
-        activities.doc_id                    as doc_id,
-        activities.standard_value            as standard_value,
-        molecule_hierarchy.parent_molregno   as molregno,
-        compound_structures.canonical_smiles as canonical_smiles,
-        target_dictionary.tid                as tid,
-        target_dictionary.chembl_id          as target_chembl_id,
-        pchembl_value                        as pchembl_value,
-        molecule_dictionary.pref_name        as compound_name,
-        from activities
-        join assays ON activities.assay_id = assays.assay_id
-        join target_dictionary ON assays.tid = target_dictionary.tid
-        join target_components ON target_dictionary.tid = target_components.tid
-        join component_class ON target_components.component_id = component_class.component_id
-        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
-        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
-        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
-        where activities.standard_units = 'nM' and
-        pchembl_value is not null and
-        activities.data_validity_comment IS null and
-        activities.standard_relation = '=' and
-        activities.potential_duplicate = 0 and
-        assays.confidence_score >= 8 and
-        target_dictionary.target_type = 'SINGLE PROTEIN' and
-        target_chembl_id = '{self.chembl_target_id}'
-        """
-
-        all_data = self._chembl_connector.query(query, return_as="duckdb")
-
-        # find intersection of high quality assays and all data
-        hq_data = hq_assays.join(all_data, "assay_id, tid, target_chembl_id, doc_id")
-
-        if return_as == "df":
-            return hq_data.to_df()
-        else:
-            return hq_data
-
-    def aggregate_activity_data_by_compound(self, canonicalise=False) -> pd.DataFrame:
-        """
-        Get the high quality activity data for a given target using its ChEMBL ID, grouped by compound.
-        If canonicalise is True, the SMILES will be canonicalised and the InChIKey calculated and
-        aggregation will be done on the canonicalised SMILES and InChIKey.
-
-        Parameters
-        ----------
-        canonicalise: bool
-            Canonicalise the SMILES and calculate the InChIKey
-
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame containing the aggregated activity data.
-        """
-        hq_data = self.get_activity_data(return_as="df")
-        if canonicalise:
-            with dm.without_rdkit_log():
-                hq_data["OPENADMET_SMILES"] = hq_data[
-                    "canonical_smiles"
-                ].progress_apply(lambda x: canonical_smiles(x))
-                hq_data["OPENADMET_INCHIKEY"] = hq_data[
-                    "OPENADMET_SMILES"
-                ].progress_apply(lambda x: smiles_to_inchikey(x))
-                data = hq_data.groupby(
-                    [
-                        "OPENADMET_SMILES",
-                        "OPENADMET_INCHIKEY",
-                    ]
-                ).agg(
-                    {
-                        "assay_id": "count",
-                        "standard_value": ["mean", "std"],
-                        "pchembl_value": ["mean", "std"],
-                    }
-                )
-        else:
-            data = hq_data.groupby(["molregno", "canonical_smiles"]).agg(
-                {
-                    "assay_id": "count",
-                    "standard_value": ["mean", "std"],
-                    "pchembl_value": ["mean", "std"],
-                }
-            )
-        # unnenest column hierarchy
-        data.columns = ["_".join(col) for col in data.columns]
-        data = data.reset_index()
-        data.sort_values("assay_id_count", ascending=False, inplace=True)
-        return data
-
-
-class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
-    """
-    Implement ChEMBL curation for a given protein target.
-
-    This is a permissive curation, where we don't apply as many filters to the data
-    we require a pChEMBL value and a standard value in nM (redundant anyway).
-
-
-    """
-
-    standard_type: Optional[str] = Field(
-        None,
-        description="Select a single Standard type of the ChEMBL data (IC50, Ki, Kd, EC50, Potency).",
-    )
-    extra_filter: Optional[str] = Field(
-        None,
-        description="Extra filters to apply to the query, single word OR matching against assay description.",
-    )
-    require_pchembl: bool = Field(True, description="Require a pChEMBL value.")
-
-    @field_validator("standard_type")
-    def check_in_allowed_standard_types(cls, value):
-        allowed_standard_types = ["IC50", "Ki", "Kd", "EC50", "AC50", "Potency"]
-        if value not in allowed_standard_types:
-            raise ValueError(
-                f"Invalid standard type: {value}. Allowed values: {allowed_standard_types}"
-            )
-        return value
-
-    def get_activity_data(
-        self, return_as: str = "df"
-    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
-        """
-        Get all the activity data for a given target using its ChEMBL ID.
-        """
-        query = f"""
-        select
-        activities.assay_id                  as assay_id,
-        activities.doc_id                    as doc_id,
-        activities.standard_value            as standard_value,
-        molecule_hierarchy.parent_molregno   as molregno,
-        compound_structures.canonical_smiles as canonical_smiles,
-        compound_structures.standard_inchi_key as standard_inchi_key,
-        target_dictionary.tid                as tid,
-        target_dictionary.chembl_id          as target_chembl_id,
-        pchembl_value                        as pchembl_value,
-        molecule_dictionary.pref_name        as compound_name,
-        activities.standard_type             as standard_type,
-        activities.bao_endpoint              as bao_endpoint,
-        assays.description                   as assay_description,
-        assays.assay_organism                as assay_organism,
-        assays.assay_strain                  as assay_strain,
-        assays.assay_tissue                  as assay_tissue,
-        assays.assay_type                    as assay_type,
-        assays.assay_cell_type               as assay_cell_type,
-        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
-        assays.variant_id                    as variant_id,
-        docs.year                            as doc_year,
-        docs.journal                         as doc_journal,
-        docs.doi                             as doc_doi,
-        docs.title                           as doc_title,
-        docs.authors                         as doc_authors,
-        docs.abstract                        as doc_abstract,
-        docs.patent_id                       as doc_patent_id,
-        docs.pubmed_id                       as doc_pubmed_id,
-        docs.chembl_release_id               as doc_chembl_release_id
-        from activities
-        join assays ON activities.assay_id = assays.assay_id
-        join target_dictionary ON assays.tid = target_dictionary.tid
-        join target_components ON target_dictionary.tid = target_components.tid
-        join component_class ON target_components.component_id = component_class.component_id
-        join docs ON activities.doc_id = docs.doc_id
-        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
-        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
-        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
-        where activities.standard_units = 'nM' and
-        target_chembl_id = '{self.chembl_target_id}'\n
-        """
-
-        if self.require_pchembl:
-            query += "and pchembl_value is not null\n"
-
-        # if we specified a single standard type, we can filter it here as doesn't happen at the assay level
-        if self.standard_type:
-            query += f"and standard_type = '{self.standard_type}'\n"
+        """Get the activity data for a  query"""
+        query = self.get_templated_query()
 
         all_data = self._chembl_connector.query(query, return_as="duckdb")
 
@@ -452,25 +132,10 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         else:
             return all_data
 
-    def get_activity_data_for_compounds(
-        self, compounds: Iterable[str], canonicalise=False, detail=False
-    ) -> pd.DataFrame:
-        # convert list of smiles to INCHIKEY
-        if canonicalise:
-            with dm.without_rdkit_log():
-                inchikeys = [smiles_to_inchikey(canonical_smiles(x)) for x in compounds]
-        else:
-            inchikeys = [smiles_to_inchikey(x) for x in compounds]
-        # get all the activity data for the target
-        df = self.get_activity_data(return_as="df")
-        subset = df[df["standard_inchi_key"].isin(inchikeys)]
-        return subset
 
     def aggregate_activity_data_by_compound(self, canonicalise=False) -> pd.DataFrame:
         """
-        Get all the activity data for a given target using its ChEMBL ID, grouped by compound.
-        If canonicalise is True, the SMILES will be canonicalised and the InChIKey calculated and
-        aggregation will be done on the canonicalised SMILES and InChIKey.
+        Aggregate the activity data by compound from a ChEMBL query.
 
         Parameters
         ----------
@@ -485,13 +150,13 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         all_data = self.get_activity_data(return_as="df")
         if canonicalise:
             with dm.without_rdkit_log():
-                all_data["OPENADMET_SMILES"] = all_data[
+                all_data["OPENADMET_CANONICAL_SMILES"] = all_data[
                     "canonical_smiles"
                 ].progress_apply(lambda x: canonical_smiles(x))
                 all_data["OPENADMET_INCHIKEY"] = all_data[
-                    "OPENADMET_SMILES"
+                    "OPENADMET_CANONICAL_SMILES"
                 ].progress_apply(lambda x: smiles_to_inchikey(x))
-                data = all_data.groupby(["OPENADMET_SMILES", "OPENADMET_INCHIKEY"]).agg(
+                data = all_data.groupby(["OPENADMET_CANONICAL_SMILES", "OPENADMET_INCHIKEY"]).agg(
                     {
                         "assay_id": "count",
                         "standard_value": ["mean", "median", "std"],
@@ -514,37 +179,155 @@ class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
 
         return data
 
-    def get_variant_ids_for_target(
-        self, return_as: str = "df"
-    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
+    def get_activity_data_for_compounds(
+        self, compounds: Iterable[str], canonicalise=False
+    ) -> pd.DataFrame:
         """
-        Get all the variant IDs for a given target using its ChEMBL ID
-        Only target_type = 'SINGLE PROTEIN' curation is applied.
-
-        Parameters
-        ----------
-        return_as: str
-            Return the data as a DataFrame or a DuckDB relation.
-
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame containing the variant IDs for the target
-
+        Get activities for a list of compounds from the ChEMBL database for the set curation.
         """
-        query = f"""
-        select distinct(variant_id), tid, description,  targets.chembl_id as target_chembl_id, \
-        assay_id, assays.chembl_id assay_chembl_id \
-        from activities \
-        join assays using(assay_id)  \
-        join docs on (assays.doc_id = docs.doc_id)  \
-        join target_dictionary as targets using (tid) \
-        where target_type = 'SINGLE PROTEIN' \
-        and target_chembl_id = '{self.chembl_target_id}' \
-        and variant_id is not null
-        group by (variant_id, tid, description, target_chembl_id, assay_id, assay_chembl_id) \
+        # convert list of smiles to INCHIKEY
+        if canonicalise:
+            with dm.without_rdkit_log():
+                inchikeys = [smiles_to_inchikey(canonical_smiles(x)) for x in compounds]
+        else:
+            inchikeys = [smiles_to_inchikey(x) for x in compounds]
+        # get all the activity data for the target
+        df = self.get_activity_data(return_as="df")
+        subset = df[df["standard_inchi_key"].isin(inchikeys)]
+        return subset
+
+
+
+
+
+class ChEMBLTargetCuratorBase(ChEMBLCuratorBase):
+    """
+    Base class for ChEMBL target curation.
+
+    This class provides a base implementation for curating ChEMBL data for a **specific protein target**.
+    Subclasses should implement the `get_templated_query` method to provide the SQL query for the target.
+    """
+
+    chembl_target_id: str = Field(..., description="ChEMBL target ID.")
+
+    standard_type: Optional[str] = Field(
+        None,
+        description="Select a single Standard type of the ChEMBL data (IC50, Ki, Kd, EC50, Potency), leave empty for all types.",
+    )
+
+    require_units: Optional[str] = Field(
+        "nM", description="Require a specific unit for the standard value."
+    )
+
+
+
+
+
+    @field_validator("standard_type")
+    def check_in_allowed_standard_types(cls, value):
+        allowed_standard_types = ["IC50", "Ki", "Kd", "EC50", "AC50", "Potency"]
+        if value not in allowed_standard_types:
+            raise ValueError(
+                f"Invalid standard type: {value}. Allowed values: {allowed_standard_types}"
+            )
+        return value
+
+
+    @field_validator("require_units")
+    def check_require_units(cls, value):
+        if value not in ["nM", "uM", "mM"]:
+            raise ValueError(
+                f"Invalid require_units: {value}. Allowed values: ['nM', 'uM', 'mM']"
+            )
+        return value
+
+
+
+class PermissiveChEMBLTargetCurator(ChEMBLTargetCuratorBase):
+    """
+    Implement ChEMBL curation for a given protein target.
+
+    This is a permissive curation, where we don't apply many filters to the resulting data
+    """
+
+    require_pchembl: bool = Field(True, description="Require a pChEMBL value, this will constrain, units and other values to be present")
+
+
+    @model_validator(mode="after")
+    def check_units_pchembl(self):
+        if self.require_pchembl is True:
+            if self.require_units != "nM":
+                raise ValueError(
+                    "If require_pchembl is True, require_units must be 'nM'."
+                )
+
+        return self
+
+    def get_templated_query(self) -> str:
+        template_str = """
+        -- Get all the activity data for a given target using its ChEMBL ID.
+        select
+            activities.assay_id                  as assay_id,
+            activities.doc_id                    as doc_id,
+            activities.standard_value            as standard_value,
+            molecule_hierarchy.parent_molregno   as molregno,
+            compound_structures.canonical_smiles as canonical_smiles,
+            compound_structures.standard_inchi_key as standard_inchi_key,
+            target_dictionary.tid                as tid,
+            target_dictionary.chembl_id          as target_chembl_id,
+            pchembl_value                        as pchembl_value,
+            molecule_dictionary.pref_name        as compound_name,
+            activities.standard_type             as standard_type,
+            activities.bao_endpoint              as bao_endpoint,
+            assays.description                   as assay_description,
+            assays.assay_organism                as assay_organism,
+            assays.assay_strain                  as assay_strain,
+            assays.assay_tissue                  as assay_tissue,
+            assays.assay_type                    as assay_type,
+            assays.assay_cell_type               as assay_cell_type,
+            assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+            assays.variant_id                    as variant_id,
+            docs.year                            as doc_year,
+            docs.journal                         as doc_journal,
+            docs.doi                             as doc_doi,
+            docs.title                           as doc_title,
+            docs.authors                         as doc_authors,
+            docs.abstract                        as doc_abstract,
+            docs.patent_id                       as doc_patent_id,
+            docs.pubmed_id                       as doc_pubmed_id,
+            docs.chembl_release_id               as doc_chembl_release_id
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join target_components ON target_dictionary.tid = target_components.tid
+        join component_class ON target_components.component_id = component_class.component_id
+        join docs ON activities.doc_id = docs.doc_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where target_chembl_id = '{{ target_chembl_id }}'
+        and activities.data_validity_comment IS null
+        {% if require_units %}and activities.standard_units = '{{ require_units }}'{% endif %}
+        {% if require_pchembl %}and pchembl_value is not null{% endif %}
+        {% if standard_type %}and standard_type ='{{ standard_type }}'{% endif %}
         """
-        return self._chembl_connector.query(query, return_as=return_as)
+
+        # Render the query in Python
+        template = Template(template_str)
+
+        query = template.render(
+            require_units=self.require_units,
+            target_chembl_id=self.chembl_target_id,
+            require_pchembl=self.require_pchembl,
+            standard_type=self.standard_type,
+        )
+
+        return query
+
+
+
+
+
 
 class SemiQuantChEMBLTargetCurator(ChEMBLTargetCuratorBase):
     """
@@ -556,27 +339,11 @@ class SemiQuantChEMBLTargetCurator(ChEMBLTargetCuratorBase):
 
     """
 
-    standard_type: Optional[str] = Field(
-        None,
-        description="Select a single Standard type of the ChEMBL data (IC50, Ki, Kd, EC50, Potency).",
-    )
 
-    @field_validator("standard_type")
-    def check_in_allowed_standard_types(cls, value):
-        allowed_standard_types = ["IC50", "Ki", "Kd", "EC50", "AC50", "Potency"]
-        if value not in allowed_standard_types:
-            raise ValueError(
-                f"Invalid standard type: {value}. Allowed values: {allowed_standard_types}"
-            )
-        return value
 
-    def get_activity_data(
-        self, return_as: str = "df"
-    ) -> Union[pd.DataFrame, duckdb.DuckDBPyRelation]:
-        """
-        Get all the activity data for a given target using its ChEMBL ID.
-        """
-        query = f"""
+    def get_templated_query(self) -> str:
+
+        template_str = """
         select
         activities.assay_id                  as assay_id,
         activities.doc_id                    as doc_id,
@@ -621,84 +388,466 @@ class SemiQuantChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         join docs ON activities.doc_id = docs.doc_id
-
-        where activities.standard_units = 'nM' and
+        where target_chembl_id = '{{ target_chembl_id }}' and
+        and standard_relation in ('=', '<', '>', '<=', '>=')
         activities.data_validity_comment IS null and
-        activities.potential_duplicate = 0 and
-        target_chembl_id = '{self.chembl_target_id}'
+        {% if require_units %}and activities.standard_units = '{{ require_units }}'{% endif %}
+        {% if require_pchembl %}and pchembl_value is not null{% endif %}
+        {% if standard_type %}and standard_type ='{{ standard_type }}' {% else %} and standard_type IN ('IC50', 'XC50', 'EC50', 'AC50', 'Ki', 'Kd', 'Potency') {% endif %}
         """
 
-        if self.standard_type:
-            query += f"and activities.standard_type IN ('{self.standard_type}')"
-        else:
-            query += "and activities.standard_type IN ('IC50', 'XC50', 'EC50', 'AC50', 'Ki', 'Kd', 'Potency')"
+
+        # Render the query in Python
+        template = Template(template_str)
+
+        query = template.render(
+            require_units=self.require_units,
+            target_chembl_id=self.chembl_target_id,
+            require_pchembl=self.require_pchembl,
+            standard_type=self.standard_type,
+        )
+
+        return query
 
 
-        all_data = self._chembl_connector.query(query, return_as="duckdb")
 
-        if return_as == "df":
-            return all_data.to_df()
-        else:
-            return all_data
+class MICChEMBLCurator(ChEMBLCuratorBase):
+    """Curates MIC data from ChEMBL"""
 
-    def get_activity_data_for_compounds(
-        self, compounds: Iterable[str], canonicalise=False, detail=False
-    ) -> pd.DataFrame:
-        # convert list of smiles to INCHIKEY
-        if canonicalise:
-            with dm.without_rdkit_log():
-                inchikeys = [smiles_to_inchikey(canonical_smiles(x)) for x in compounds]
-        else:
-            inchikeys = [smiles_to_inchikey(x) for x in compounds]
-        # get all the activity data for the target
-        df = self.get_activity_data(return_as="df")
-        subset = df[df["standard_inchi_key"].isin(inchikeys)]
-        return subset
+    organism: Optional[str] = Field(None, description="Organism to filter the target data by.")
 
-    def aggregate_activity_data_by_compound(self, canonicalise=False) -> pd.DataFrame:
+    include_out_of_range: bool = Field(
+        False,
+        description="If True, will include activities with out of range values (e.g. > 10000 nM).",
+    )
+
+
+    def get_templated_query(self) -> str:
         """
-        Get all the activity data for a given target using its ChEMBL ID, grouped by compound.
-        If canonicalise is True, the SMILES will be canonicalised and the InChIKey calculated and
-        aggregation will be done on the canonicalised SMILES and InChIKey.
 
-        Parameters
-        ----------
-        canonicalise: bool
-            Canonicalise the SMILES and calculate the InChIKey
-
-        Returns
-        -------
-        pd.DataFrame
-            DataFrame containing the aggregated activity data.
+        Get the templated query for the MIC data to pull from the ChEMBL database.
         """
-        all_data = self.get_activity_data(return_as="df")
-        if canonicalise:
-            with dm.without_rdkit_log():
-                all_data["OPENADMET_SMILES"] = all_data[
-                    "canonical_smiles"
-                ].progress_apply(lambda x: canonical_smiles(x))
-                all_data["OPENADMET_INCHIKEY"] = all_data[
-                    "OPENADMET_SMILES"
-                ].progress_apply(lambda x: smiles_to_inchikey(x))
-                data = all_data.groupby(["OPENADMET_SMILES", "OPENADMET_INCHIKEY"]).agg(
-                    {
-                        "assay_id": "count",
-                        "standard_value": ["mean", "median", "std"],
-                        "pchembl_value": ["mean", "median", "std"],
-                    }
-                )
-        else:
-            data = all_data.groupby(["molregno", "canonical_smiles"]).agg(
-                {
-                    "assay_id": "count",
-                    "standard_value": ["mean", "median", "std"],
-                    "pchembl_value": ["mean", "median", "std"],
-                    "compound_name": "first",  # or "unique" if you want all names
-                }
+        query = """
+        select
+        activities.assay_id                  as assay_id,
+        activities.doc_id                    as doc_id,
+        activities.standard_value            as standard_value,
+        activities.standard_relation         as standard_relation,
+        activities.standard_type             as standard_type,
+        activities.standard_units            as standard_units,
+        molecule_hierarchy.parent_molregno   as molregno,
+        compound_structures.canonical_smiles as canonical_smiles,
+        compound_structures.standard_inchi_key as standard_inchi_key,
+        target_dictionary.tid                as tid,
+        target_dictionary.chembl_id          as target_chembl_id,
+        pchembl_value                        as pchembl_value,
+        molecule_dictionary.pref_name        as compound_name,
+        activities.standard_type             as standard_type,
+        assays.description                   as assay_description,
+        assays.assay_organism                as assay_organism,
+        assays.assay_strain                  as assay_strain,
+        assays.assay_tissue                  as assay_tissue,
+        assays.assay_type                    as assay_type,
+        assays.assay_cell_type               as assay_cell_type,
+        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+        assays.variant_id                    as variant_id,
+        assays.confidence_score             as confidence_score,
+        docs.year                            as doc_year,
+        docs.journal                         as doc_journal,
+        docs.doi                             as doc_doi,
+        docs.title                           as doc_title,
+        docs.authors                         as doc_authors,
+        docs.abstract                        as doc_abstract,
+        docs.patent_id                       as doc_patent_id,
+        docs.pubmed_id                       as doc_pubmed_id,
+        docs.chembl_release_id               as doc_chembl_release_id
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join docs ON activities.doc_id = docs.doc_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where activities.standard_type = 'MIC' and
+        target_dictionary.target_type = 'ORGANISM'
+        and activities.data_validity_comment IS null
+        {% if organism %}and assays.assay_organism = '{{ organism }}' {% endif %}
+        {% if include_out_of_range %} and activities.standard_relation in ('=', '<', '>', '<=', '>=') {% else %} and activities.standard_relation = '=' {% endif %}
+        """
+
+
+        # Render the query in Python
+        template = Template(query)
+        query = template.render(
+            organism=self.organism,
+            include_out_of_range=self.include_out_of_range
+        )
+        return query
+
+
+
+
+class HepatotoxicityChEMBLCurator(ChEMBLCuratorBase):
+
+
+    def get_templated_query(self) -> str:
+        """
+        Get the templated query for the hepatotoxicity data to pull from the ChEMBL database.
+        """
+        query = """
+        select
+        activities.assay_id                  as assay_id,
+        activities.doc_id                    as doc_id,
+        activities.standard_value            as standard_value,
+        activities.standard_relation         as standard_relation,
+        activities.standard_type             as standard_type,
+        activities.standard_units            as standard_units,
+        activities.activity_comment         as activity_comment,
+        molecule_hierarchy.parent_molregno   as molregno,
+        compound_structures.canonical_smiles as canonical_smiles,
+        compound_structures.standard_inchi_key as standard_inchi_key,
+        target_dictionary.tid                as tid,
+        target_dictionary.chembl_id          as target_chembl_id,
+        pchembl_value                        as pchembl_value,
+        molecule_dictionary.pref_name        as compound_name,
+        activities.standard_type             as standard_type,
+        assays.description                   as assay_description,
+        assays.assay_organism                as assay_organism,
+        assays.assay_strain                  as assay_strain,
+        assays.assay_tissue                  as assay_tissue,
+        assays.assay_type                    as assay_type,
+        assays.assay_cell_type               as assay_cell_type,
+        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+        assays.variant_id                    as variant_id,
+        assays.confidence_score             as confidence_score,
+        docs.year                            as doc_year,
+        docs.journal                         as doc_journal,
+        docs.doi                             as doc_doi,
+        docs.title                           as doc_title,
+        docs.authors                         as doc_authors,
+        docs.abstract                        as doc_abstract,
+        docs.patent_id                       as doc_patent_id,
+        docs.pubmed_id                       as doc_pubmed_id,
+        docs.chembl_release_id               as doc_chembl_release_id
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join docs ON activities.doc_id = docs.doc_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where activities.standard_type like '%Hepatotoxicity%' and
+        target_dictionary.target_type = 'PHENOTYPE'
+        """
+        # Render the query in Python
+        template = Template(query)
+        query = template.render()
+        return query
+
+
+
+class LogPDCurator(ChEMBLCuratorBase):
+    """
+    Curator for LogP/D data from ChEMBL.
+
+    This class provides methods to curate LogP/D data from the ChEMBL database.
+    """
+    standard_type: str = Field(
+        "LogD",
+        description="Standard type to filter the LogP/D data. Default is 'LogD'"
+    )
+
+    @field_validator("standard_type")
+    def check_standard_type(cls, value):
+        allowed_standard_types = ["LogP", "LogD"]
+        if value not in allowed_standard_types:
+            raise ValueError(
+                f"Invalid standard type: {value}. Allowed values: {allowed_standard_types}"
             )
-        # unnenest column hierarchy
-        data.columns = ["_".join(col) for col in data.columns]
-        data = data.reset_index()
-        data.sort_values("assay_id_count", ascending=False, inplace=True)
+        return value
 
-        return data
+
+    def get_templated_query(self) -> str:
+        """
+        Get the templated query for the LogP/D data to pull from the ChEMBL database.
+        """
+        query = """
+        select
+        activities.assay_id                  as assay_id,
+        activities.doc_id                    as doc_id,
+        activities.standard_value            as standard_value,
+        activities.standard_relation         as standard_relation,
+        activities.standard_type             as standard_type,
+        activities.standard_units            as standard_units,
+        activities.activity_comment         as activity_comment,
+        molecule_hierarchy.parent_molregno   as molregno,
+        compound_structures.canonical_smiles as canonical_smiles,
+        compound_structures.standard_inchi_key as standard_inchi_key,
+        target_dictionary.tid                as tid,
+        target_dictionary.chembl_id          as target_chembl_id,
+        pchembl_value                        as pchembl_value,
+        molecule_dictionary.pref_name        as compound_name,
+        activities.standard_type             as standard_type,
+        assays.description                   as assay_description,
+        assays.assay_organism                as assay_organism,
+        assays.assay_strain                  as assay_strain,
+        assays.assay_tissue                  as assay_tissue,
+        assays.assay_type                    as assay_type,
+        assays.assay_cell_type               as assay_cell_type,
+        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+        assays.variant_id                    as variant_id,
+        assays.confidence_score             as confidence_score,
+        assays.bao_format                   as bao_format,
+        docs.year                            as doc_year,
+        docs.journal                         as doc_journal,
+        docs.doi                             as doc_doi,
+        docs.title                           as doc_title,
+        docs.authors                         as doc_authors,
+        docs.abstract                        as doc_abstract,
+        docs.patent_id                       as doc_patent_id,
+        docs.pubmed_id                       as doc_pubmed_id,
+        docs.chembl_release_id               as doc_chembl_release_id
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join docs ON activities.doc_id = docs.doc_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where activities.standard_type = '{{ standard_type }}' and
+        bao_format = 'BAO_0000100'
+        -- BAO_0000100 is the format for small molecule physicochemical properties
+        """
+
+
+        # Render the query in Python
+        template = Template(query)
+        query = template.render(standard_type=self.standard_type)
+        return query
+
+
+class pKaCurator(ChEMBLCuratorBase):
+    """
+    Curator for pKa data from ChEMBL.
+
+    This class provides methods to curate pKa data from the ChEMBL database.
+    """
+
+
+
+    def get_templated_query(self) -> str:
+        """
+        Get the templated query for the LogP/D data to pull from the ChEMBL database.
+        """
+        query = """
+        select
+        activities.assay_id                  as assay_id,
+        activities.doc_id                    as doc_id,
+        activities.standard_value            as standard_value,
+        activities.standard_relation         as standard_relation,
+        activities.standard_type             as standard_type,
+        activities.standard_units            as standard_units,
+        activities.activity_comment         as activity_comment,
+        activities.bao_endpoint              as bao_endpoint,
+        molecule_hierarchy.parent_molregno   as molregno,
+        compound_structures.canonical_smiles as canonical_smiles,
+        compound_structures.standard_inchi_key as standard_inchi_key,
+        target_dictionary.tid                as tid,
+        target_dictionary.chembl_id          as target_chembl_id,
+        pchembl_value                        as pchembl_value,
+        molecule_dictionary.pref_name        as compound_name,
+        activities.standard_type             as standard_type,
+        assays.description                   as assay_description,
+        assays.assay_organism                as assay_organism,
+        assays.assay_strain                  as assay_strain,
+        assays.assay_tissue                  as assay_tissue,
+        assays.assay_type                    as assay_type,
+        assays.assay_cell_type               as assay_cell_type,
+        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+        assays.variant_id                    as variant_id,
+        assays.confidence_score             as confidence_score,
+        assays.bao_format                   as bao_format,
+        docs.year                            as doc_year,
+        docs.journal                         as doc_journal,
+        docs.doi                             as doc_doi,
+        docs.title                           as doc_title,
+        docs.authors                         as doc_authors,
+        docs.abstract                        as doc_abstract,
+        docs.patent_id                       as doc_patent_id,
+        docs.pubmed_id                       as doc_pubmed_id,
+        docs.chembl_release_id               as doc_chembl_release_id
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join docs ON activities.doc_id = docs.doc_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where activities.standard_type = 'pKa' and
+        bao_format = 'BAO_0000100'
+        -- BAO_0000100 is the format for small molecule physicochemical properties
+        """
+
+
+        # Render the query in Python
+
+        template = Template(query)
+        query = template.render()
+        return query
+
+class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
+    """
+    Curator for microsomal  data from ChEMBL.
+
+    This class provides methods to curate microsomal stability data from the ChEMBL database.
+    """
+    organism: Optional[str] = Field(
+        None, description="Organism to filter the microsomal stability data by."
+    )
+    require_units: str = Field(
+        "mL.min-1.g-1", description="Required units for the microsomal stability data."
+    )
+
+    standard_type: str = Field(
+        "CL",
+        description="Standard type to filter the microsomal stability data. Default is 'CL' (Clearance), other options include 'T1/2' (T1/2, half-life)."
+    )
+
+    @field_validator("standard_type")
+    def check_standard_type(cls, value):
+        allowed_standard_types = ["CL", "T1/2"]
+        if value not in allowed_standard_types:
+            raise ValueError(
+                f"Invalid standard type: {value}. Allowed values: {allowed_standard_types}"
+            )
+        return value
+
+    def get_templated_query(self) -> str:
+        """
+        Get the templated query for the microsomal stability data to pull from the ChEMBL database.
+        """
+        query = """
+        select
+        activities.assay_id                  as assay_id,
+        activities.doc_id                    as doc_id,
+        activities.standard_value            as standard_value,
+        activities.standard_relation         as standard_relation,
+        activities.standard_type             as standard_type,
+        activities.standard_units            as standard_units,
+        activities.activity_comment         as activity_comment,
+        molecule_hierarchy.parent_molregno   as molregno,
+        compound_structures.canonical_smiles as canonical_smiles,
+        compound_structures.standard_inchi_key as standard_inchi_key,
+        target_dictionary.tid                as tid,
+        target_dictionary.chembl_id          as target_chembl_id,
+        pchembl_value                        as pchembl_value,
+        molecule_dictionary.pref_name        as compound_name,
+        activities.standard_type             as standard_type,
+        assays.description                   as assay_description,
+        assays.assay_organism                as assay_organism,
+        assays.assay_strain                  as assay_strain,
+        assays.assay_tissue                  as assay_tissue,
+        assays.assay_type                    as assay_type,
+        assays.assay_cell_type               as assay_cell_type,
+        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+        assays.variant_id                    as variant_id,
+        assays.confidence_score             as confidence_score,
+        assays.bao_format                   as bao_format,
+        docs.year                            as doc_year,
+        docs.journal                         as doc_journal,
+        docs.doi                             as doc_doi,
+        docs.title                           as doc_title,
+        docs.authors                         as doc_authors,
+        docs.abstract                        as doc_abstract,
+        docs.patent_id                       as doc_patent_id,
+        docs.pubmed_id                       as doc_pubmed_id,
+        docs.chembl_release_id               as doc_chembl_release_id
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join docs ON activities.doc_id = docs.doc_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where activities.standard_type = '{{ standard_type }}' and
+        bao_format = 'BAO_0000251'
+        -- BAO_0000251 is the format for microsomal assays
+        {% if organism %}and assays.assay_organism = '{{ organism }}' {% endif %}
+        {% if require_units %}and activities.standard_units = '{{ require_units }}' {% endif %}
+        """
+
+        # Render the query in Python
+        template = Template(query)
+        query = template.render(organism=self.organism, standard_type=self.standard_type, require_units=self.require_units)
+        return query
+
+
+class PPBChEMBLCurator(ChEMBLCuratorBase):
+    """
+    Curator for plasma protein binding (PPB) data from ChEMBL.
+
+    This class provides methods to curate plasma protein binding data from the ChEMBL database.
+    """
+    organism: Optional[str] = Field(
+        None, description="Organism to filter the plasma protein binding data by."
+    )
+
+    def get_templated_query(self) -> str:
+        """
+        Get the templated query for the microsomal stability data to pull from the ChEMBL database.
+        """
+        query = """
+        select
+        activities.assay_id                  as assay_id,
+        activities.doc_id                    as doc_id,
+        activities.standard_value            as standard_value,
+        activities.standard_relation         as standard_relation,
+        activities.standard_type             as standard_type,
+        activities.standard_units            as standard_units,
+        activities.activity_comment         as activity_comment,
+        molecule_hierarchy.parent_molregno   as molregno,
+        compound_structures.canonical_smiles as canonical_smiles,
+        compound_structures.standard_inchi_key as standard_inchi_key,
+        target_dictionary.tid                as tid,
+        target_dictionary.chembl_id          as target_chembl_id,
+        pchembl_value                        as pchembl_value,
+        molecule_dictionary.pref_name        as compound_name,
+        activities.standard_type             as standard_type,
+        assays.description                   as assay_description,
+        assays.assay_organism                as assay_organism,
+        assays.assay_strain                  as assay_strain,
+        assays.assay_tissue                  as assay_tissue,
+        assays.assay_type                    as assay_type,
+        assays.assay_cell_type               as assay_cell_type,
+        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+        assays.variant_id                    as variant_id,
+        assays.confidence_score             as confidence_score,
+        assays.bao_format                   as bao_format,
+        docs.year                            as doc_year,
+        docs.journal                         as doc_journal,
+        docs.doi                             as doc_doi,
+        docs.title                           as doc_title,
+        docs.authors                         as doc_authors,
+        docs.abstract                        as doc_abstract,
+        docs.patent_id                       as doc_patent_id,
+        docs.pubmed_id                       as doc_pubmed_id,
+        docs.chembl_release_id               as doc_chembl_release_id
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join docs ON activities.doc_id = docs.doc_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where activities.standard_type = 'PPB' and
+        activities.standard_units = '%' and
+        assay_type in ('ADMET') and
+        activities.bao_format = 'BAO_0000366'
+        -- BAO_0000366 is the format for cell-free assays
+        {% if organism %}and assays.assay_organism = '{{ organism }}' {% endif %}
+        """
+
+        # Render the query in Python
+        template = Template(query)
+        query = template.render(organism=self.organism)
+        return query
