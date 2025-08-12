@@ -150,13 +150,13 @@ class ChEMBLCuratorBase(BaseModel):
         all_data = self.get_activity_data(return_as="df")
         if canonicalise:
             with dm.without_rdkit_log():
-                all_data["OPENADMET_SMILES"] = all_data[
+                all_data["OPENADMET_CANONICAL_SMILES"] = all_data[
                     "canonical_smiles"
                 ].progress_apply(lambda x: canonical_smiles(x))
                 all_data["OPENADMET_INCHIKEY"] = all_data[
-                    "OPENADMET_SMILES"
+                    "OPENADMET_CANONICAL_SMILES"
                 ].progress_apply(lambda x: smiles_to_inchikey(x))
-                data = all_data.groupby(["OPENADMET_SMILES", "OPENADMET_INCHIKEY"]).agg(
+                data = all_data.groupby(["OPENADMET_CANONICAL_SMILES", "OPENADMET_INCHIKEY"]).agg(
                     {
                         "assay_id": "count",
                         "standard_value": ["mean", "median", "std"],
