@@ -51,14 +51,14 @@ def combine_seq_smiles_to_fasta(
     if not all(item in ["protein", "ligand", "smiles", "ccd"] for item in protein_or_ligand):
         raise ValueError("unexpected tag, must be one of 'protein', 'ligand', 'smiles', 'ccd'")
 
-    if method not in ["chai1", "boltz1"]:
-        raise ValueError("unexpected method, must be one of 'chai1', 'boltz1'")
+    if method not in ["chai1", "boltz"]:
+        raise ValueError("unexpected method, must be one of 'chai1', 'boltz'")
 
     if method == "chai1":
         fasta_chunks = []
         for seq, name, pl in zip(seqs, names, protein_or_ligand):
             fasta_chunks.append(f">{pl}|name={name}\n{seq}\n")
-    elif method == "boltz1":
+    elif method == "boltz":
         fasta_chunks = []
         if msa_paths is not None:
             for seq, name, pl, path in zip(seqs, names, protein_or_ligand, msa_paths):
