@@ -81,7 +81,7 @@ class BoltzCoFoldingEngine(CoFoldingEngine):
             args = ["boltz", "predict",
                             fasta_path,
                             "--out_dir", tmpdirname,
-                            "--cache", f"{self.output_dir /".boltz"}",
+                            "--cache", f"{self.output_dir}/.boltz",
                             "--devices", "1",
                             "--accelerator", "gpu",
                             "--recycling_steps", str(self.recycling_steps),
