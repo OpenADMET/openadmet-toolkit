@@ -3,4 +3,4 @@
 def test_cofold_imports():
     from openadmet.toolkit.cofolding.cofold_base import CoFoldingEngine # noqa: F401 F403
     from openadmet.toolkit.cofolding.chai1 import Chai1CoFoldingEngine # noqa: F401 F403
-    from openadmet.toolkit.cofolding.boltz1 import Boltz1CoFoldingEngine # noqa: F401 F403
+    from openadmet.toolkit.cofolding.boltz import BoltzCoFoldingEngine # noqa: F401 F403

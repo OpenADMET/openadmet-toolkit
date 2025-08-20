@@ -14,7 +14,7 @@ from pydantic import Field
 
 from openadmet.toolkit.cofolding.cofold_base import CoFoldingEngine
 
-class Boltz1CoFoldingEngine(CoFoldingEngine):
+class BoltzCoFoldingEngine(CoFoldingEngine):
 
     use_msa_server: bool = Field(
                 False, description="Use MSA server for multiple sequence alignment"
@@ -69,20 +69,19 @@ class Boltz1CoFoldingEngine(CoFoldingEngine):
         for i, (protein_name, fasta) in enumerate(zip(protein_names, fastas)):
 
             tmpdirname = Path(tempfile.mkdtemp(
-                prefix=f".boltz1_{protein_name}", dir=self.output_dir
+                prefix=f".boltz_{protein_name}", dir=self.output_dir
             ))
             tmpdirname.mkdir(parents=True, exist_ok=True)
             # make seperate tempdir for fasta
             fasta_path = tmpdirname / f"input_{protein_name}.fasta"
 
-            with open(fasta_path, "w") as f:
-                f.write(fasta)
+            with open(fasta) as fin, open(fasta_path, "w") as fout:
+                fout.write(fin.read())
 
             args = ["boltz", "predict",
                             fasta_path,
                             "--out_dir", tmpdirname,
-                            # "--cache", f"{self.output_dir /".boltz"}", ch
-                            # "--checkpoint", "None", we can specify a checkpoint later if we do some fine-tuning
+                            "--cache", f"{self.output_dir}/.boltz",
                             "--devices", "1",
                             "--accelerator", "gpu",
                             "--recycling_steps", str(self.recycling_steps),
