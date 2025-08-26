@@ -1,6 +1,7 @@
 import pandas as pd
 import pytest
 from openff.units import unit
+import numpy as np
 
 from openadmet.toolkit.chemoinformatics.rdkit_funcs import (
     canonical_smiles,
@@ -11,7 +12,7 @@ from openadmet.toolkit.chemoinformatics.rdkit_funcs import (
 
 from openadmet.toolkit.chemoinformatics.activity_funcs import (
     calculate_pac50,
-    pac50_to_ki,
+    pIC50_to_Ki,
     ki_to_dg
 )
 
@@ -79,12 +80,14 @@ def test_calculate_pac50():
     ic50_3 = calculate_pac50(3e-8, input_unit_str="M")
     assert ic50_1 == 6.0
     assert ic50_2 == 8.0
-    assert round(ic50_3, 1) == 7.5
+    np.testing.assert_allclose(ic50_3, 7.5, rtol=0, atol=0.05)
 
 def test_pac50_to_ki():
-    ki = pac50_to_ki(9.0)
+    ki = pIC50_to_Ki(9.0)
+    ki2 = pIC50_to_Ki(pIC50=7.5, S=8.0, Km=2.0)
     assert ki == 1e-9 * unit.molar
+    np.testing.assert_allclose(ki2, 6.324e-9, rtol=1e-3)
 
 def test_ki_to_dg():
     dg = ki_to_dg(ki=100, input_unit_str="nM")
-    assert round(dg, 1) == -40.0 * unit.kilojoule_per_mole
+    np.testing.assert_allclose(dg, -40.0, rtol=0, atol=0.05)

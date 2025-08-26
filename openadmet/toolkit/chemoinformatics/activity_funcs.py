@@ -1,5 +1,6 @@
 import numpy as np
 from openff.units import unit
+from typing import Optional
 
 
 def calculate_pac50(activity:float, input_unit_str:str) -> float:
@@ -7,14 +8,25 @@ def calculate_pac50(activity:float, input_unit_str:str) -> float:
     Molarity can be in M, mM, uM, µM, or nM.
     Acceptable activity measures are: EC50, IC50, XC50, AC50.
 
-    Args:
-        activity (float): activity measure in units of molarity
-        input_unit_str (str): string of molarity units, one of "M", "mM", "uM", "µM", or "nM"
+    Parameters
+    ----------
+    activity : float
+        activity measure in units of molarity
+    input_unit_str : str
+        string of molarity units, one of "M", "mM", "uM", "µM", or "nM"
 
-    Returns:
-        float: p(activity measure)
+    Returns
+    -------
+    float
+        p(activity measure)
+
+    Raises
+    ------
+    ValueError
+        Unsupported molarity unit. Must be one of input_unit_str
+    ValueError
+        Negative activity measure values are not allowed.
     """
-
     # First, convert the activity measure to proper molarity units
     unit_map = {
         "M": unit.molar,
@@ -23,7 +35,6 @@ def calculate_pac50(activity:float, input_unit_str:str) -> float:
         "uM": unit.micromolar,
         "nM": unit.nanomolar,
     }
-
 
     input_unit = unit_map.get(input_unit_str)
 
@@ -38,17 +49,30 @@ def calculate_pac50(activity:float, input_unit_str:str) -> float:
     else:
         raise ValueError("Whoops! Negative activity measure values are not allowed.")
 
-def pac50_to_ki(pac50:float) -> float:
-    """A function to approximate inhibition constant (Ki) from pAC50.
-    This conversion is based on the assumption that there is negligible substrate concentration such that Ki ≈ AC50
+def pIC50_to_Ki(pIC50:float, S: Optional[float] = None, Km: Optional[float] = None) -> float:
+    """A function to approximate inhibition constant (Ki) from pIC50 with the Cheng-Prusoff Equation:
+        Ki = IC50/(1+ S/Km)
+    If S and Km are not provided, then the assumption is that S/Km = 0, aka there is negligible substrate concentration such that Ki ≈ IC50.
 
-    Args:
-        pac50 (float): p(activity measure)
 
-    Returns:
-        float: inhibition constant (Ki) in units of molarity (M)
+    Parameters
+    ----------
+    pIC50 : float
+        log transform of inihibitory concentration (IC)
+    S : Optional[float], optional
+        substrate concentration, by default None
+    Km : Optional[float], optional
+        Michaelis-Menten constant, aka when the substrate concentration at which the enzyme is at half os maximum velocity (Vmax); it is a measure of substrate affinity where low Km means higher affinity, by default None
+
+    Returns
+    -------
+    float
+        inhibition constant (Ki) in units of molarity (M)
     """
-    return 10 ** (-1 * pac50) * unit.molar
+    if S is None and Km is None:
+        return 10 ** (-1 * pIC50) * unit.molar
+    else:
+        return 10 ** (-1 * pIC50) / (1 + S / Km)
 
 def ki_to_dg(ki:unit.Quantity, input_unit_str:str, temp_rxn:unit.Quantity = 298.15 * unit.kelvin) -> float:
     """A function to calculate Gibbs free energy (delta G, or dg) from p(activity measure).
