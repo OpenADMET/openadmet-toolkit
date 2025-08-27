@@ -49,32 +49,54 @@ def calculate_pac50(activity:float, input_unit_str:str) -> float:
     else:
         raise ValueError("Whoops! Negative activity measure values are not allowed.")
 
-def pIC50_to_Ki(pIC50:float, S: Optional[float] = None, Km: Optional[float] = None) -> float:
+def pIC50_to_Ki(pIC50:float, S: Optional[unit.Quantity] = None, Km: Optional[unit.Quantity] = None) -> unit.Quantity:
     """A function to approximate inhibition constant (Ki) from pIC50 with the Cheng-Prusoff Equation:
         Ki = IC50/(1+ S/Km)
     If S and Km are not provided, then the assumption is that S/Km = 0, aka there is negligible substrate concentration such that Ki ≈ IC50.
-
 
     Parameters
     ----------
     pIC50 : float
         log transform of inihibitory concentration (IC)
-    S : Optional[float], optional
+    S : Optional[unit.Quantity], optional
         substrate concentration, by default None
-    Km : Optional[float], optional
+    Km : Optional[unit.Quantity], optional
         Michaelis-Menten constant, aka when the substrate concentration at which the enzyme is at half os maximum velocity (Vmax); it is a measure of substrate affinity where low Km means higher affinity, by default None
 
     Returns
     -------
-    float
-        inhibition constant (Ki) in units of molarity (M)
-    """
+    unit.Quantity
+        inhibition constant (Ki) in concentration units
+
+    Raises
+    ------
+    ValueError
+        Either both S and Km must be provided, or neither are provided.
+    ValueError
+        S and Km must be an openff.units.Quantity.
+    ValueError
+        S and Km must have concentration units.
+    ValueError
+        Km must be non-zero when S is provided.
+    """    
     if S is None and Km is None:
         return 10 ** (-1 * pIC50) * unit.molar
-    else:
-        return 10 ** (-1 * pIC50) / (1 + S / Km)
+    
+    if (S is None) != (Km is None):
+        raise ValueError("Either both S and Km must be provided, or neither are provided.")
+    
+    for quantity, name in zip((S, Km), ("S", "Km")):
+        if not isinstance(quantity, unit.Quantity):
+            raise ValueError(f"{name} must be an openff.units.Quantity.")
+        if not quantity.units.is_compatible_with(unit.molar):
+            raise ValueError(f"{name} must have concentration units.")
+    if Km.magnitude == 0:
+        raise ValueError("Km must be non-zero when S is provided.")
+    
+    Ki = 10**(-1 * pIC50) / (1 + (S / Km).magnitude)
+    return Ki * S.units
 
-def ki_to_dg(ki:unit.Quantity, input_unit_str:str, temp_rxn:unit.Quantity = 298.15 * unit.kelvin) -> float:
+def ki_to_dg(ki:unit.Quantity, input_unit_str:str, temp_rxn:unit.Quantity = 298.15 * unit.kelvin) -> unit.kilojoule_per_mole:
     """A function to calculate Gibbs free energy (delta G, or dg) from p(activity measure).
     Final output is Gibbs free energy in units of kJ/mol
 
@@ -83,21 +105,27 @@ def ki_to_dg(ki:unit.Quantity, input_unit_str:str, temp_rxn:unit.Quantity = 298.
     - Ideal solution
     - Constant temperature
 
-    Notes:
-        The equation is G = RT ln(Ki) where
-            G = Gibbs free energy
-            R = gas constant, 8.3145 J/(K*mol)
-            T = temperature of reaction in Kelvin
-            ln(Ki) = natural log of inhibition constant
+    Parameters
+    ----------
+    ki : unit.Quantity
+        inhibition or dissociation constant of a small molecule inhibitor to a protein anti-target
+    input_unit_str : str
+        string of molarity units, one of "M", "mM", "uM", "µM", or "nM"
+    temp_rxn : unit.Quantity, optional
+        temperature at which the reaction takes place, default is 25 C or 298.15 K, by default 298.15*unit.kelvin
 
-    Args:
-        ki (float): inhibition or dissociation constant of a small molecule inhibitor to a protein anti-target
-        input_unit_str (str): string of molarity units, one of "M", "mM", "uM", "µM", or "nM"
-        temp_rxn (float): temperature at which the reaction takes place, default is 25 C or 298.15 K
+    Returns
+    -------
+    float
+        Gibbs free energy (dg) in units of kJ/mol
 
-    Returns:
-        float: Gibbs free energy (dg) in units of kJ/mol
-    """
+    Raises
+    ------
+    ValueError
+        Unsupported molarity unit: {input_unit_str}. Must be one of "M", "mM", "uM", "µM", or "nM".
+    ValueError
+        Your inhibition constant is negative. Gibbs free energy cannot be calculated.
+    """    
     # First, convert the activity measure to proper molarity units
     unit_map = {
         "M": unit.molar,

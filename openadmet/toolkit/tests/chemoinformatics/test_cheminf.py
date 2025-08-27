@@ -83,11 +83,13 @@ def test_calculate_pac50():
     np.testing.assert_allclose(ic50_3, 7.5, rtol=0, atol=0.05)
 
 def test_pac50_to_ki():
-    ki = pIC50_to_Ki(9.0)
-    ki2 = pIC50_to_Ki(pIC50=7.5, S=8.0, Km=2.0)
+    ki = pIC50_to_Ki(pIC50=9.0)
+    ki2 = pIC50_to_Ki(pIC50=7.5, S=8.0*unit.molar, Km=2.0*unit.molar)
     assert ki == 1e-9 * unit.molar
-    np.testing.assert_allclose(ki2, 6.324e-9, rtol=1e-3)
+    np.testing.assert_allclose(ki2.magnitude, 6.324e-9, rtol=1e-3)
+    assert ki2.units == unit.molar
 
 def test_ki_to_dg():
     dg = ki_to_dg(ki=100, input_unit_str="nM")
-    np.testing.assert_allclose(dg, -40.0, rtol=0, atol=0.05)
+    np.testing.assert_allclose(dg.magnitude, -40.0, rtol=0, atol=0.05)
+    assert dg.units == unit.kilojoule_per_mole
