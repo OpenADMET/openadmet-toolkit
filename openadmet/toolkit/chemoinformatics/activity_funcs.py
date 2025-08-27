@@ -78,13 +78,13 @@ def pIC50_to_Ki(pIC50:float, S: Optional[unit.Quantity] = None, Km: Optional[uni
         S and Km must have concentration units.
     ValueError
         Km must be non-zero when S is provided.
-    """    
+    """
     if S is None and Km is None:
         return 10 ** (-1 * pIC50) * unit.molar
-    
+
     if (S is None) != (Km is None):
         raise ValueError("Either both S and Km must be provided, or neither are provided.")
-    
+
     for quantity, name in zip((S, Km), ("S", "Km")):
         if not isinstance(quantity, unit.Quantity):
             raise ValueError(f"{name} must be an openff.units.Quantity.")
@@ -92,7 +92,7 @@ def pIC50_to_Ki(pIC50:float, S: Optional[unit.Quantity] = None, Km: Optional[uni
             raise ValueError(f"{name} must have concentration units.")
     if Km.magnitude == 0:
         raise ValueError("Km must be non-zero when S is provided.")
-    
+
     Ki = 10**(-1 * pIC50) / (1 + (S / Km).magnitude)
     return Ki * S.units
 
@@ -125,7 +125,7 @@ def ki_to_dg(ki:unit.Quantity, input_unit_str:str, temp_rxn:unit.Quantity = 298.
         Unsupported molarity unit: {input_unit_str}. Must be one of "M", "mM", "uM", "µM", or "nM".
     ValueError
         Your inhibition constant is negative. Gibbs free energy cannot be calculated.
-    """    
+    """
     # First, convert the activity measure to proper molarity units
     unit_map = {
         "M": unit.molar,
