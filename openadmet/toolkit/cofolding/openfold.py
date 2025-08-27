@@ -53,6 +53,7 @@ class OpenFold3CofoldingEngine(CoFoldingEngine):
 
     use_templates: bool = Field(False, description="Use templates for structure prediction")
 
+    inference_ckpt_path: Path = Field(None, description="Path to the inference checkpoint")
 
     def inference(
         self, 
