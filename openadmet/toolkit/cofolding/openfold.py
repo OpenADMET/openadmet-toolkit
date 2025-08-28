@@ -11,7 +11,7 @@ import numpy as np
 import torch
 from loguru import logger
 
-from pydantic import Field
+from pydantic import Field, field_validator
 
 from openadmet.toolkit.cofolding.cofold_base import CoFoldingEngine
 
@@ -53,14 +53,20 @@ class OpenFold3CofoldingEngine(CoFoldingEngine):
 
     use_templates: bool = Field(False, description="Use templates for structure prediction")
 
-    inference_ckpt_path: Path = Field(None, description="Path to the inference checkpoint")
+    inference_ckpt_path: Path = Field(description="Path to the inference checkpoint")
+
+
+    @field_validator("inference_ckpt_path")
+    def check_inference_ckpt_path(cls, v):
+        # path must exist
+        if not v.exists():
+            raise ValueError(f"inference_ckpt_path must exist, got {v}")
+        return v
 
     def inference(
         self, 
         query_json: Path,
-        inference_ckpt_path: Path,
         runner_yaml: Path | None = None,
-        output_dir: Path | None = None,
     ):
         if not HAS_OPENFOLD3:
             raise ImportError("OpenFold3 is not installed.")
@@ -68,7 +74,7 @@ class OpenFold3CofoldingEngine(CoFoldingEngine):
         runner_args = config_utils.load_yaml(runner_yaml) if runner_yaml else dict()
 
         expt_config = InferenceExperimentConfig(
-            inference_ckpt_path=inference_ckpt_path, **runner_args
+            inference_ckpt_path=self.inference_ckpt_path, **runner_args
         )
         expt_runner = InferenceExperimentRunner(
             expt_config,
@@ -76,13 +82,13 @@ class OpenFold3CofoldingEngine(CoFoldingEngine):
             self.num_model_seeds,
             self.use_msa_server,
             self.use_templates,
-            output_dir,
+            self.output_dir,
         )
 
         # Dump experiment runner
         import json
 
-        with open(output_dir / "experiment_config.json", "w") as f:
+        with open(self.output_dir / "experiment_config.json", "w") as f:
             json.dump(expt_config.model_dump_json(indent=2), f)
 
         # Load inference query set
