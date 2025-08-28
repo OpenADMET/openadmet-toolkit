@@ -71,7 +71,7 @@ class OpenFold3CofoldingEngine(CoFoldingEngine):
         if not HAS_OPENFOLD3:
             raise ImportError("OpenFold3 is not installed.")
 
-        runner_args = config_utils.load_yaml(runner_yaml) if runner_yaml else dict()
+        runner_args = config_utils.load_yaml(runner_yaml) if runner_yaml else {}
 
         expt_config = InferenceExperimentConfig(
             inference_ckpt_path=self.inference_ckpt_path, **runner_args
