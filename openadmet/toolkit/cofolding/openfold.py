@@ -16,7 +16,7 @@ from pydantic import Field, field_validator
 from openadmet.toolkit.cofolding.cofold_base import CoFoldingEngine
 
 
-try: 
+try:
     from openfold3.core.config import config_utils
     from openfold3.core.data.pipelines.preprocessing.template import TemplatePreprocessor
     from openfold3.core.data.tools.colabfold_msa_server import preprocess_colabfold_msas
@@ -64,13 +64,13 @@ class OpenFold3CofoldingEngine(CoFoldingEngine):
         return v
 
     def inference(
-        self, 
+        self,
         query_json: Path,
         runner_yaml: Path | None = None,
     ):
         if not HAS_OPENFOLD3:
             raise ImportError("OpenFold3 is not installed.")
-        
+
         runner_args = config_utils.load_yaml(runner_yaml) if runner_yaml else dict()
 
         expt_config = InferenceExperimentConfig(
