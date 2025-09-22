@@ -99,7 +99,7 @@ class DataProcessing(BaseModel):
             # If it is, check that the data type is correct
             def safe_pac50(x):
                 try:
-                    return calculate_pac50(activity=float(x), input_unit=input_unit)
+                    return calculate_pac50(activity=float(x), input_unit_str=input_unit)
                 except (ValueError, TypeError):
                     return np.nan
 
