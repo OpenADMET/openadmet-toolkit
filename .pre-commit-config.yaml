@@ -11,13 +11,13 @@ repos:
   - id: check-builtin-literals
   - id: check-executables-have-shebangs
   - id: check-json
-- repo: https://github.com/psf/black
+- repo: https://github.com/psf/black-pre-commit-mirror
   rev: 25.9.0
   hooks:
   - id: black
     files: ^openadmet_toolkit
 - repo: https://github.com/PyCQA/isort
-  rev: 6.0.1
+  rev: 7.0.0
   hooks:
   - id: isort
     files: ^openadmet_toolkit
@@ -29,7 +29,7 @@ repos:
     files: ^openadmet_toolkit
     additional_dependencies: [Flake8-pyproject]
 - repo: https://github.com/asottile/pyupgrade
-  rev: 'v3.20.0'
+  rev: 'v3.21.0'
   hooks:
   - id: pyupgrade
     args:
