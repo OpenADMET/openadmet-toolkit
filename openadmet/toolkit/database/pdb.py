@@ -227,7 +227,7 @@ def process_pdb(
         u = mda.Universe(NamedStream(StringIO(pdb_text), f"{pdb_id}.pdb"))
     protein_A = u.select_atoms(f"protein and chainid {chain_ids[0]}")
     others = u.select_atoms(
-        f"chainid {chain_ids[0]} and not protein and not water {exclude_co_crystals}"
+        f"chainid {chain_ids[0]} and not protein and not water {exclude_resnames}"
     )
 
     combined = protein_A + others
