@@ -17,7 +17,7 @@ COMMON_CO_CRYSTALS = [
     "SO4",
     "PO4",
     "NI",
-    "MOO",  
+    "MOO",
     "MPD",
     "IPA",
     "IMD",
@@ -27,9 +27,9 @@ COMMON_CO_CRYSTALS = [
     "CIT",
     "PG0",
     "2CV",
-    "CPS",  
+    "CPS",
     "ADP",
-]  
+]
 
 
 def get_pdb_ids(uniprot_id, rows=1000):
