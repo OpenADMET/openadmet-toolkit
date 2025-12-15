@@ -3,11 +3,11 @@ from pathlib import Path
 import gemmi
 
 UNIPROT_IDS = {
-               "CYP2D6": "P10635", 
+               "CYP2D6": "P10635",
                "CYP3A4": "P08684",
                "CYP1A2": "P05177",
-               "CYP2C9": "P11712", 
-               "PXR"   : "O75469", 
+               "CYP2C9": "P11712",
+               "PXR"   : "O75469",
                "AHR"   : "P35869"
               }
 
@@ -28,7 +28,7 @@ def get_pdb_ids(uniprot_id, rows=1000):
         "request_options": {
             "paginate": {
                 "start": 0,
-                "rows": rows  # default 10, change if 1000 ids found 
+                "rows": rows  # default 10, change if 1000 ids found
             }
         }
     }
@@ -49,8 +49,8 @@ def get_rcsb_url(pdb_id, fmt="cif"):
 def download_rcsb_file(pdb_id, fmt='cif', outdir=".", get_text=False):
     """
     Download specified file type (default mmCIF, but works for PDB)
-    for the given PDB ID in the specified output directory.  
-    Returns file text as string. Set get_text to True if you do not want to download the file, only get the text. 
+    for the given PDB ID in the specified output directory.
+    Returns file text as string. Set get_text to True if you do not want to download the file, only get the text.
     """
     outdir = Path(outdir)
     outdir.mkdir(parents=True, exist_ok=True)

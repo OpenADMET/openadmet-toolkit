@@ -1,5 +1,5 @@
 from pathlib import Path
-from glob import glob 
+from glob import glob
 import requests
 import biotite.structure.io as bsio
 import numpy as np
@@ -50,7 +50,7 @@ def get_ligand_chain_ids(entry, pdb_id):
         # print(data)
         chem_id = data['pdbx_entity_nonpoly']["comp_id"]
         chains = data["rcsb_nonpolymer_entity_container_identifiers"]["auth_asym_ids"]
-        ligand_chains[chem_id] = chains   
+        ligand_chains[chem_id] = chains
         chem_ids.append(chem_id)
     return ligand_chains, chem_ids
 
