@@ -1,0 +1,30 @@
+{
+  "species": [
+    "Mus musculus",
+    "Rattus norvegicus",
+    "Canis lupus",
+    "Macaca mulatta",
+    "Homo sapiens"
+  ],
+  "liver weight (g/kg body weight)": [
+    87,
+    40,
+    30,
+    32,
+    26
+  ],
+  "liver blood flow (ml/min/kg)": [
+    90,
+    55.5,
+    30.9,
+    44,
+    20.7
+  ],
+  "microsomal protein content (mg protein/g liver)": [
+    45,
+    45,
+    45,
+    45,
+    45
+  ]
+}
