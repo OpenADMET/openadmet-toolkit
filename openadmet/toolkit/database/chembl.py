@@ -710,7 +710,7 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
     organism: Optional[str] = Field(
         None, description="Organism to filter the microsomal stability data by."
     )
-    require_units: Optional[List[str]] = Field(
+    require_units: Optional[list[str]] = Field(
         None, description="Allowed units for the microsomal stability data."
     )
 
@@ -795,7 +795,7 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
         template = Template(query)
         query = template.render(organism=self.organism, standard_type=self.standard_type, require_units=self.require_units)
         return query
-    
+
     def get_activity_data(self, return_as: str = "df") -> pd.DataFrame:
         df = super().get_activity_data(return_as)
 
@@ -816,9 +816,9 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
             mp_content = species_df.loc[species, "microsomal protein content (mg protein/g liver)"]
             liver_weight = species_df.loc[species, "liver weight (g/kg body weight)"]
             return row["standard_value"] * mp_content * liver_weight / 1000
-        
+
         df.loc[mask, "standard_value_scaled"] = df.loc[mask].apply(scale_row, axis=1)
-        
+
         return df
 
 
