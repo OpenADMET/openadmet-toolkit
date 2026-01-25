@@ -797,7 +797,7 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
 class MicrosomalChEMBLScaler(MicrosomalChEMBLCurator):
     value_field: str = Field(
         "standard_value_scaled", description="in vitro CLint scaled to in vivo CLint")
-    
+
     def get_activity_data(self, return_as: str = "df") -> pd.DataFrame:
         df = super().get_activity_data(return_as)
 
@@ -812,7 +812,7 @@ class MicrosomalChEMBLScaler(MicrosomalChEMBLCurator):
             if species not in species_df.index:
                 # no scaling if species not found
                 return row["standard_value"]
-            
+
             # Scaling formula: in vitro CLint (mL/min/g liver) -> in vivo CLint (mL/min/kg body weight)
             # CLint_scaled = CLint_invitro * microsomal protein content (mg/g liver) * liver weight (g/kg BW) / 1000
             # Note: divide by 1000 to convert mg -> g for protein content if needed
