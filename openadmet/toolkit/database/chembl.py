@@ -719,9 +719,6 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
         description="Standard type to filter the microsomal stability data. Default is 'CL' (Clearance), other options include 'T1/2' (T1/2, half-life)."
     )
 
-    value_field: str = Field(
-        "standard_value_scaled", description="in vitro CLint scaled to in vivo CLint")
-
     @field_validator("standard_type")
     def check_standard_type(cls, value):
         allowed_standard_types = ["CL", "T1/2"]
@@ -796,6 +793,11 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
         query = template.render(organism=self.organism, standard_type=self.standard_type, require_units=self.require_units)
         return query
 
+
+class MicrosomalChEMBLScaler(MicrosomalChEMBLCurator):
+    value_field: str = Field(
+        "standard_value_scaled", description="in vitro CLint scaled to in vivo CLint")
+    
     def get_activity_data(self, return_as: str = "df") -> pd.DataFrame:
         df = super().get_activity_data(return_as)
 
@@ -803,13 +805,14 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
 
         mask = df["standard_units"].str.fullmatch(r"mL\.min-1\.g-1", na=False)
 
-        def scale_row(row):
+        def ivive_scale_row(mask, row):
             if not mask.loc[row.name]:
                 return row["standard_value"]  # no scaling needed
             species = row["assay_organism"]
             if species not in species_df.index:
                 # no scaling if species not found
                 return row["standard_value"]
+            
             # Scaling formula: in vitro CLint (mL/min/g liver) -> in vivo CLint (mL/min/kg body weight)
             # CLint_scaled = CLint_invitro * microsomal protein content (mg/g liver) * liver weight (g/kg BW) / 1000
             # Note: divide by 1000 to convert mg -> g for protein content if needed
@@ -817,7 +820,8 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
             liver_weight = species_df.loc[species, "liver weight (g/kg body weight)"]
             return row["standard_value"] * mp_content * liver_weight / 1000
 
-        df.loc[mask, "standard_value_scaled"] = df.loc[mask].apply(scale_row, axis=1)
+        df.loc[mask, "standard_value_scaled"] = df.loc[mask].apply(lambda x: ivive_scale_row(mask=mask, row=x), axis=1)
+        df.loc[mask, "scaled_units"] = "mL.min-1.kg-1"
 
         return df
 
