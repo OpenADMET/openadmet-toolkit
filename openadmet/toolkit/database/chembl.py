@@ -1,7 +1,8 @@
 import abc
 from collections.abc import Iterable
 from pathlib import Path
-from typing import Optional, Union
+from typing import Optional, Union, List
+from importlib import resources
 
 import chembl_downloader
 import datamol as dm
@@ -12,6 +13,10 @@ from jinja2 import Template
 
 
 from openadmet.toolkit.chemoinformatics.rdkit_funcs import canonical_smiles, smiles_to_inchikey
+
+with resources.open_text("openadmet.toolkit.data", "ivive_scaling_factors.json") as f:
+    species_df = pd.read_json(f)
+species_df.set_index("species", inplace=True)
 
 
 class ChEMBLDatabaseConnector(BaseModel):
@@ -103,6 +108,7 @@ class ChEMBLDatabaseConnector(BaseModel):
 class ChEMBLCuratorBase(BaseModel):
     chembl_version: int = Field(34, description="Version of the ChEMBL database.")
     _chembl_connector: Optional[ChEMBLDatabaseConnector] = None
+    value_field: str = Field("standard_value", description="Field to perform aggregation on")
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -159,7 +165,7 @@ class ChEMBLCuratorBase(BaseModel):
                 data = all_data.groupby(["OPENADMET_CANONICAL_SMILES", "OPENADMET_INCHIKEY"]).agg(
                     {
                         "assay_id": "count",
-                        "standard_value": ["mean", "median", "std"],
+                        self.value_field: ["mean", "median", "std"],
                         "pchembl_value": ["mean", "median", "std"],
                     }
                 )
@@ -167,7 +173,7 @@ class ChEMBLCuratorBase(BaseModel):
             data = all_data.groupby(["molregno", "canonical_smiles"]).agg(
                 {
                     "assay_id": "count",
-                    "standard_value": ["mean", "median", "std"],
+                    self.value_field: ["mean", "median", "std"],
                     "pchembl_value": ["mean", "median", "std"],
                     "compound_name": "first",  # or "unique" if you want all names
                 }
@@ -704,8 +710,8 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
     organism: Optional[str] = Field(
         None, description="Organism to filter the microsomal stability data by."
     )
-    require_units: str = Field(
-        "mL.min-1.g-1", description="Required units for the microsomal stability data."
+    require_units: Optional[list[str]] = Field(
+        None, description="Allowed units for the microsomal stability data."
     )
 
     standard_type: str = Field(
@@ -773,13 +779,51 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
         bao_format = 'BAO_0000251'
         -- BAO_0000251 is the format for microsomal assays
         {% if organism %}and assays.assay_organism = '{{ organism }}' {% endif %}
-        {% if require_units %}and activities.standard_units = '{{ require_units }}' {% endif %}
+        {% if require_units %}
+        and activities.standard_units IN (
+            {% for unit in require_units %}
+                '{{ unit }}'{% if not loop.last %},{% endif %}
+            {% endfor %}
+        )
+        {% endif %}
         """
 
         # Render the query in Python
         template = Template(query)
         query = template.render(organism=self.organism, standard_type=self.standard_type, require_units=self.require_units)
         return query
+
+
+class MicrosomalChEMBLScaler(MicrosomalChEMBLCurator):
+    value_field: str = Field(
+        "standard_value_scaled", description="in vitro CLint scaled to in vivo CLint")
+
+    def get_activity_data(self, return_as: str = "df") -> pd.DataFrame:
+        df = super().get_activity_data(return_as)
+
+        df["standard_value_scaled"] = df["standard_value"]
+
+        mask = df["standard_units"].str.fullmatch(r"mL\.min-1\.g-1", na=False)
+
+        def ivive_scale_row(mask, row):
+            if not mask.loc[row.name]:
+                return row["standard_value"]  # no scaling needed
+            species = row["assay_organism"]
+            if species not in species_df.index:
+                # no scaling if species not found
+                return row["standard_value"]
+
+            # Scaling formula: in vitro CLint (mL/min/g liver) -> in vivo CLint (mL/min/kg body weight)
+            # CLint_scaled = CLint_invitro * microsomal protein content (mg/g liver) * liver weight (g/kg BW) / 1000
+            # Note: divide by 1000 to convert mg -> g for protein content if needed
+            mp_content = species_df.loc[species, "microsomal protein content (mg protein/g liver)"]
+            liver_weight = species_df.loc[species, "liver weight (g/kg body weight)"]
+            return row["standard_value"] * mp_content * liver_weight / 1000
+
+        df.loc[mask, "standard_value_scaled"] = df.loc[mask].apply(lambda x: ivive_scale_row(mask=mask, row=x), axis=1)
+        df.loc[mask, "scaled_units"] = "mL.min-1.kg-1"
+
+        return df
 
 
 class PPBChEMBLCurator(ChEMBLCuratorBase):
