@@ -979,7 +979,7 @@ class Caco2ChEMBLCurator(ChEMBLCuratorBase):
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = 'Papp' and
         activities.standard_units in ('ucm/s', '10''-6 cm/s', '10-6 cm/s', '10^-6 cm/s', '10''-5 cm/s', '10^-5 cm/s', '10-5 cm/s', 'nm/s') and
-        assays.bao_format = 'BAO_0000219' and 
+        assays.bao_format = 'BAO_0000219' and
         assays.assay_organism = 'Homo sapiens' and
         assays.assay_cell_type = 'Caco-2' {{ direction_clause }}
         """
@@ -1004,7 +1004,7 @@ class Caco2ChEMBLCurator(ChEMBLCuratorBase):
 
         # Normalize unit strings to lower case for matching
         unit_key = df['standard_units'].str.lower()
-        
+
         # Map the factors and multiply (vectorized operation is much faster than .apply)
         factors = unit_key.map(conversion_factors).fillna(1.0)
         df['standard_value'] = df['standard_value'] * factors
@@ -1132,7 +1132,7 @@ class MDCKChEMBLCurator(ChEMBLCuratorBase):
 
         # Normalize unit strings to lower case for matching
         unit_key = df['standard_units'].str.lower()
-        
+
         # Map the factors and multiply (vectorized operation is much faster than .apply)
         factors = unit_key.map(conversion_factors).fillna(1.0)
         df['standard_value'] = df['standard_value'] * factors
