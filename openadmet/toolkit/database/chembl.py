@@ -895,3 +895,249 @@ class PPBChEMBLCurator(ChEMBLCuratorBase):
         template = Template(query)
         query = template.render(organism=self.organism)
         return query
+
+
+class Caco2ChEMBLCurator(ChEMBLCuratorBase):
+    """
+    Curator for Caco-2 permeability data from ChEMBL.
+
+    This class provides methods to curate Caco-2 permeability data from the ChEMBL database.
+    """
+
+    b_to_a: bool = Field(
+        False, description="If True, will curate basolateral to apical permeability data."
+    )
+    a_to_b: bool = Field(
+        False, description="If True, will curate apical to basolateral permeability data."
+    )
+
+
+
+    def get_templated_query(self) -> str:
+        """
+        Get the templated query for the microsomal stability data to pull from the ChEMBL database.
+        """
+
+        # Build the directional filter based on class attributes
+        direction_filters = []
+        if self.a_to_b:
+            # Common patterns for Apical to Basolateral
+            direction_filters.append("assays.description ILIKE '%A-B%' OR assays.description ILIKE '%A to B%' OR assays.description ILIKE '%apical to basolateral%'")
+        if self.b_to_a:
+            # Common patterns for Basolateral to Apical
+            direction_filters.append("assays.description ILIKE '%B-A%' OR assays.description ILIKE '%B to A%' OR assays.description ILIKE '%basolateral to apical%'")
+
+        # Combine filters with OR if both are selected, otherwise just use the one
+        if direction_filters:
+            direction_clause = f"AND ({' OR '.join(direction_filters)})"
+        else:
+            # Default to no filter if neither is specified, or you could raise an error
+            direction_clause = ""
+
+        query = """
+        select
+        activities.assay_id                  as assay_id,
+        activities.doc_id                    as doc_id,
+        activities.standard_value            as standard_value,
+        activities.standard_relation         as standard_relation,
+        activities.standard_type             as standard_type,
+        activities.standard_units            as standard_units,
+        activities.activity_comment         as activity_comment,
+        molecule_hierarchy.parent_molregno   as molregno,
+        compound_structures.canonical_smiles as canonical_smiles,
+        compound_structures.standard_inchi_key as standard_inchi_key,
+        target_dictionary.tid                as tid,
+        target_dictionary.chembl_id          as target_chembl_id,
+        pchembl_value                        as pchembl_value,
+        molecule_dictionary.pref_name        as compound_name,
+        activities.standard_type             as standard_type,
+        assays.description                   as assay_description,
+        assays.assay_organism                as assay_organism,
+        assays.assay_strain                  as assay_strain,
+        assays.assay_tissue                  as assay_tissue,
+        assays.assay_type                    as assay_type,
+        assays.assay_cell_type               as assay_cell_type,
+        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+        assays.variant_id                    as variant_id,
+        assays.confidence_score             as confidence_score,
+        assays.bao_format                   as bao_format,
+        docs.year                            as doc_year,
+        docs.journal                         as doc_journal,
+        docs.doi                             as doc_doi,
+        docs.title                           as doc_title,
+        docs.authors                         as doc_authors,
+        docs.abstract                        as doc_abstract,
+        docs.patent_id                       as doc_patent_id,
+        docs.pubmed_id                       as doc_pubmed_id,
+        docs.chembl_release_id               as doc_chembl_release_id
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join docs ON activities.doc_id = docs.doc_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where activities.standard_type = 'Papp' and
+        activities.standard_units in ('ucm/s', '10''-6 cm/s', '10-6 cm/s', '10^-6 cm/s', '10''-5 cm/s', '10^-5 cm/s', '10-5 cm/s', 'nm/s') and
+        assays.bao_format = 'BAO_0000219' and
+        assays.assay_organism = 'Homo sapiens' and
+        assays.assay_cell_type = 'Caco-2' {{ direction_clause }}
+        """
+
+        # Render the query in Python
+        template = Template(query)
+        query = template.render(direction_clause=direction_clause)
+        return query
+
+    def get_activity_data(self, return_as: str = "df") -> pd.DataFrame:
+        df = super().get_activity_data(return_as)
+
+        # Dictionary keys in lowercase for easier matching
+        conversion_factors = {
+            'ucm/s': 1.0,
+            "10^-6 cm/s": 1.0,
+            "10-6 cm/s": 1.0,
+            "10^-5 cm/s": 10.0,
+            "10-5 cm/s": 10.0,
+            "nm/s": 0.1
+        }
+
+        # Normalize unit strings to lower case for matching
+        unit_key = df['standard_units'].str.lower()
+
+        # Map the factors and multiply (vectorized operation is much faster than .apply)
+        factors = unit_key.map(conversion_factors).fillna(1.0)
+        df['standard_value'] = df['standard_value'] * factors
+
+        # Force the new unit label
+        df['standard_units'] = "10^-6 cm/s"
+
+        return df
+
+
+class MDCKChEMBLCurator(ChEMBLCuratorBase):
+    """
+    Curator for MDCK permeability data from ChEMBL.
+
+    This class provides methods to curate MDCK permeability data from the ChEMBL database.
+    """
+
+    cell_type : str = Field(
+        "MDCK", description="Cell type to filter the MDCK permeability data by."
+    )
+
+    a_to_b: bool = Field(
+        True, description="Filter for Apical to Basolateral direction."
+    )
+
+    b_to_a: bool = Field(
+        True, description="Filter for Basolateral to Apical direction."
+    )
+
+    @field_validator("cell_type")
+    def validate_cell_type(cls, value):
+        allowed = ['MDCK', "MDCK-II", "MDCK-MDR1"]
+        if value not in allowed:
+            raise ValueError("Invalid cell type for MDCKChEMBLCurator. Must be 'MDCK', 'MDCK-II', or 'MDCK-MDR1'.")
+
+
+    def get_templated_query(self) -> str:
+        """
+        Get the templated query for the microsomal stability data to pull from the ChEMBL database.
+        """
+
+        # Build the directional filter based on class attributes
+       # Build the directional filter based on class attributes
+        direction_filters = []
+        if self.a_to_b:
+            # Common patterns for Apical to Basolateral
+            direction_filters.append("assays.description ILIKE '%A-B%' OR assays.description ILIKE '%A to B%' OR assays.description ILIKE '%apical to basolateral%'")
+        if self.b_to_a:
+            # Common patterns for Basolateral to Apical
+            direction_filters.append("assays.description ILIKE '%B-A%' OR assays.description ILIKE '%B to A%' OR assays.description ILIKE '%basolateral to apical%'")
+
+        # Combine filters with OR if both are selected, otherwise just use the one
+        if direction_filters:
+            direction_clause = f"AND ({' OR '.join(direction_filters)})"
+        else:
+            # Default to no filter if neither is specified, or you could raise an error
+            direction_clause = ""
+
+        query = """
+        select
+        activities.assay_id                  as assay_id,
+        activities.doc_id                    as doc_id,
+        activities.standard_value            as standard_value,
+        activities.standard_relation         as standard_relation,
+        activities.standard_type             as standard_type,
+        activities.standard_units            as standard_units,
+        activities.activity_comment         as activity_comment,
+        molecule_hierarchy.parent_molregno   as molregno,
+        compound_structures.canonical_smiles as canonical_smiles,
+        compound_structures.standard_inchi_key as standard_inchi_key,
+        target_dictionary.tid                as tid,
+        target_dictionary.chembl_id          as target_chembl_id,
+        pchembl_value                        as pchembl_value,
+        molecule_dictionary.pref_name        as compound_name,
+        activities.standard_type             as standard_type,
+        assays.description                   as assay_description,
+        assays.assay_organism                as assay_organism,
+        assays.assay_strain                  as assay_strain,
+        assays.assay_tissue                  as assay_tissue,
+        assays.assay_type                    as assay_type,
+        assays.assay_cell_type               as assay_cell_type,
+        assays.assay_subcellular_fraction    as assay_subcellular_fraction,
+        assays.variant_id                    as variant_id,
+        assays.confidence_score             as confidence_score,
+        assays.bao_format                   as bao_format,
+        docs.year                            as doc_year,
+        docs.journal                         as doc_journal,
+        docs.doi                             as doc_doi,
+        docs.title                           as doc_title,
+        docs.authors                         as doc_authors,
+        docs.abstract                        as doc_abstract,
+        docs.patent_id                       as doc_patent_id,
+        docs.pubmed_id                       as doc_pubmed_id,
+        docs.chembl_release_id               as doc_chembl_release_id
+        from activities
+        join assays ON activities.assay_id = assays.assay_id
+        join target_dictionary ON assays.tid = target_dictionary.tid
+        join docs ON activities.doc_id = docs.doc_id
+        join molecule_dictionary ON activities.molregno = molecule_dictionary.molregno
+        join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
+        join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
+        where activities.standard_type = 'Papp' and
+        assays.bao_format = 'BAO_0000219' and
+        assays.assay_organism = 'Canis lupus familiaris' and
+        assays.assay_cell_type = '{{ cell_type }}' {{ direction_clause }}
+        """
+
+        # Render the query in Python
+        template = Template(query)
+        query = template.render(cell_type=self.cell_type, direction_clause=direction_clause)
+        return query
+
+    def get_activity_data(self, return_as: str = "df") -> pd.DataFrame:
+        df = super().get_activity_data(return_as)
+
+        # Dictionary keys in lowercase for easier matching
+        conversion_factors = {
+            'ucm/s': 1.0,
+            "10^-6 cm/s": 1.0,
+            "10-6 cm/s": 1.0,
+            "10^-5 cm/s": 10.0,
+            "10-5 cm/s": 10.0,
+            "nm/s": 0.1
+        }
+
+        # Normalize unit strings to lower case for matching
+        unit_key = df['standard_units'].str.lower()
+
+        # Map the factors and multiply (vectorized operation is much faster than .apply)
+        factors = unit_key.map(conversion_factors).fillna(1.0)
+        df['standard_value'] = df['standard_value'] * factors
+
+        # Force the new unit label
+        df['standard_units'] = "10^-6 cm/s"
+
+        return df
