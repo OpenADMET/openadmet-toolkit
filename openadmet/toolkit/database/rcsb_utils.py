@@ -72,3 +72,17 @@ def convert_cif_to_pdb_gemmi(cif_text):
     doc = gemmi.cif.read_string(cif_text)
     structure = gemmi.make_structure_from_block(doc.sole_block())
     return structure.make_pdb_string()
+
+
+def convert_pdb_to_cif_gemmi(in_pdb, out_cif, block_name=None):
+    """
+    Read a PDB file and write an mmCIF file using gemmi.
+    """
+    st = gemmi.read_pdb(in_pdb)
+    if block_name is not None:
+        st.name = block_name
+    doc = st.make_mmcif_document()
+    if block_name is not None:
+        doc.sole_block().name = block_name
+    with open(out_cif, "w") as f:
+        f.write(doc.as_string())
