@@ -35,7 +35,7 @@ mamba env create -f devtools/conda-envs/openadmet_toolkit.yaml
 The `openadmet-toolkit` library can then be installed via:
 
 ```
-python -m pip install -e --no-deps .
+python -m pip install --no-deps -e .
 ```
 
 
