@@ -501,6 +501,6 @@ class DatamolFilter(BaseFilter):
         if mols is None:
             mols = self.get_mols(smiles=smiles)
 
-        property = mols.apply(lambda x: eval(f"dm.descriptors.{self.name}")(x))
+        property = mols.apply(lambda x: getattr(dm.descriptors, self.name)(x))
 
         return property
