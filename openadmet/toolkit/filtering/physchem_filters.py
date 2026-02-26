@@ -212,7 +212,7 @@ class ProximityFilter(BaseFilter):
         """
 
         if mols is None:
-            mols = self.set_mols(smiles=smiles)
+            mols = self.get_mols(smiles=smiles)
 
         matches_a = mols.apply(
                 lambda x: self._match_smarts(x, self.smarts_list_a, self.names_list_a)
