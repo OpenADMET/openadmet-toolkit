@@ -885,8 +885,8 @@ class PPBChEMBLCurator(ChEMBLCuratorBase):
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = 'PPB' and
         activities.standard_units = '%' and
-        assay_type in ('ADMET') and
-        activities.bao_format = 'BAO_0000366'
+        assay_type in ('A', 'B') and
+        assays.bao_format = 'BAO_0000366'
         -- BAO_0000366 is the format for cell-free assays
         {% if organism %}and assays.assay_organism = '{{ organism }}' {% endif %}
         """
