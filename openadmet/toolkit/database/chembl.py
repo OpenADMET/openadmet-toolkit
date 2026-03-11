@@ -885,8 +885,8 @@ class PPBChEMBLCurator(ChEMBLCuratorBase):
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = 'PPB' and
         activities.standard_units = '%' and
-        assay_type in ('ADMET') and
-        activities.bao_format = 'BAO_0000366'
+        assay_type in ('A', 'B') and
+        assays.bao_format = 'BAO_0000366'
         -- BAO_0000366 is the format for cell-free assays
         {% if organism %}and assays.assay_organism = '{{ organism }}' {% endif %}
         """
@@ -922,10 +922,10 @@ class Caco2ChEMBLCurator(ChEMBLCuratorBase):
         direction_filters = []
         if self.a_to_b:
             # Common patterns for Apical to Basolateral
-            direction_filters.append("assays.description ILIKE '%A-B%' OR assays.description ILIKE '%A to B%' OR assays.description ILIKE '%apical to basolateral%'")
+            direction_filters.append("assays.description ILIKE '%A-B%' OR assays.description ILIKE '%A to B%' OR assays.description ILIKE '%apical to basolateral%' OR assays.description ILIKE '%apical to basal%'")
         if self.b_to_a:
             # Common patterns for Basolateral to Apical
-            direction_filters.append("assays.description ILIKE '%B-A%' OR assays.description ILIKE '%B to A%' OR assays.description ILIKE '%basolateral to apical%'")
+            direction_filters.append("assays.description ILIKE '%B-A%' OR assays.description ILIKE '%B to A%' OR assays.description ILIKE '%basolateral to apical%' OR assays.description ILIKE '%basal to apical%'")
 
         # Combine filters with OR if both are selected, otherwise just use the one
         if direction_filters:
@@ -1027,11 +1027,11 @@ class MDCKChEMBLCurator(ChEMBLCuratorBase):
     )
 
     a_to_b: bool = Field(
-        True, description="Filter for Apical to Basolateral direction."
+        False, description="Filter for Apical to Basolateral direction."
     )
 
     b_to_a: bool = Field(
-        True, description="Filter for Basolateral to Apical direction."
+        False, description="Filter for Basolateral to Apical direction."
     )
 
     @field_validator("cell_type")
@@ -1051,10 +1051,10 @@ class MDCKChEMBLCurator(ChEMBLCuratorBase):
         direction_filters = []
         if self.a_to_b:
             # Common patterns for Apical to Basolateral
-            direction_filters.append("assays.description ILIKE '%A-B%' OR assays.description ILIKE '%A to B%' OR assays.description ILIKE '%apical to basolateral%'")
+            direction_filters.append("assays.description ILIKE '%A-B%' OR assays.description ILIKE '%A to B%' OR assays.description ILIKE '%apical to basolateral%' OR assays.description ILIKE '%apical to basal%'")
         if self.b_to_a:
             # Common patterns for Basolateral to Apical
-            direction_filters.append("assays.description ILIKE '%B-A%' OR assays.description ILIKE '%B to A%' OR assays.description ILIKE '%basolateral to apical%'")
+            direction_filters.append("assays.description ILIKE '%B-A%' OR assays.description ILIKE '%B to A%' OR assays.description ILIKE '%basolateral to apical%' OR assays.description ILIKE '%basal to apical%'")
 
         # Combine filters with OR if both are selected, otherwise just use the one
         if direction_filters:
