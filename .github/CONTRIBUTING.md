@@ -33,4 +33,3 @@ As a small team, we must prioritize Pull Requests (PRs) that require minimal rev
 * [General GitHub documentation](https://help.github.com/)
 * [PR best practices](http://codeinthehole.com/writing/pull-requests-and-other-good-practices-for-teams-using-github/)
 * [A guide to contributing to software packages](http://www.contribution-guide.org)
-* [Thinkful PR example](http://www.thinkful.com/learn/github-pull-request-tutorial/#Time-to-Submit-Your-First-PR)
