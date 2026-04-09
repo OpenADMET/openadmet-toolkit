@@ -395,7 +395,7 @@ class SemiQuantChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         join docs ON activities.doc_id = docs.doc_id
         where target_chembl_id = '{{ target_chembl_id }}' and
-        and standard_relation in ('=', '<', '>', '<=', '>=')
+        activities.standard_relation in ('=', '<', '>', '<=', '>=') and
         activities.data_validity_comment IS null and
         {% if require_units %}and activities.standard_units = '{{ require_units }}'{% endif %}
         {% if require_pchembl %}and pchembl_value is not null{% endif %}
@@ -621,6 +621,7 @@ class LogPDCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = '{{ standard_type }}' and
+        (activities.standard_relation = '=' or activities.standard_relation IS NULL) and
         bao_format = 'BAO_0000100'
         -- BAO_0000100 is the format for small molecule physicochemical properties
         """
@@ -776,6 +777,7 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = '{{ standard_type }}' and
+        (activities.standard_relation = '=' or activities.standard_relation IS NULL) and
         bao_format = 'BAO_0000251'
         -- BAO_0000251 is the format for microsomal assays
         {% if organism %}and assays.assay_organism = '{{ organism }}' {% endif %}
@@ -884,6 +886,7 @@ class PPBChEMBLCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = 'PPB' and
+        (activities.standard_relation = '=' or activities.standard_relation IS NULL) and
         activities.standard_units = '%' and
         assay_type in ('A', 'B') and
         assays.bao_format = 'BAO_0000366'
@@ -979,6 +982,7 @@ class Caco2ChEMBLCurator(ChEMBLCuratorBase):
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = 'Papp' and
         activities.standard_units in ('ucm/s', '10''-6 cm/s', '10-6 cm/s', '10^-6 cm/s', '10''-5 cm/s', '10^-5 cm/s', '10-5 cm/s', 'nm/s') and
+        (activities.standard_relation = '=' or activities.standard_relation IS NULL) and
         assays.bao_format = 'BAO_0000219' and
         assays.assay_organism = 'Homo sapiens' and
         assays.assay_cell_type = 'Caco-2' {{ direction_clause }}
@@ -1107,6 +1111,7 @@ class MDCKChEMBLCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = 'Papp' and
+        (activities.standard_relation = '=' or activities.standard_relation IS NULL) and
         assays.bao_format = 'BAO_0000219' and
         assays.assay_organism = 'Canis lupus familiaris' and
         assays.assay_cell_type = '{{ cell_type }}' {{ direction_clause }}
