@@ -6,7 +6,7 @@ We welcome contributions from external contributors. This document describes the
 
 As a small team, we must prioritize Pull Requests (PRs) that require minimal review. To maintain high project standards:
 
-* **Human Validation:** While AI-assisted contributions are not strictly discouraged, they **must** undergo significant manual, human validation and verification. 
+* **Human Validation:** While AI-assisted contributions are not strictly discouraged, they **must** undergo significant manual, human validation and verification.
 * **Submission State:** All PRs must be submitted in a "ready-to-merge" state. We reserve the right to close any PR without review if it does not meet these quality standards.
 * **Verification:** If you have pending PRs, please audit them manually and leave a comment on the PR once you have personally verified the changes. We will defer reviewing these submissions until this confirmation is provided.
 * **Final Authority:** All final decisions regarding the acceptance of contributions remain at the sole discretion of the maintainers.

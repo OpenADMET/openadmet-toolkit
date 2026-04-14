@@ -395,7 +395,7 @@ class SemiQuantChEMBLTargetCurator(ChEMBLTargetCuratorBase):
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         join docs ON activities.doc_id = docs.doc_id
         where target_chembl_id = '{{ target_chembl_id }}' and
-        and standard_relation in ('=', '<', '>', '<=', '>=')
+        activities.standard_relation in ('=', '<', '>', '<=', '>=') and
         activities.data_validity_comment IS null and
         {% if require_units %}and activities.standard_units = '{{ require_units }}'{% endif %}
         {% if require_pchembl %}and pchembl_value is not null{% endif %}
@@ -621,6 +621,7 @@ class LogPDCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = '{{ standard_type }}' and
+        (activities.standard_relation = '=' or activities.standard_relation IS NULL) and
         bao_format = 'BAO_0000100'
         -- BAO_0000100 is the format for small molecule physicochemical properties
         """
@@ -776,6 +777,7 @@ class MicrosomalChEMBLCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = '{{ standard_type }}' and
+        (activities.standard_relation = '=' or activities.standard_relation IS NULL) and
         bao_format = 'BAO_0000251'
         -- BAO_0000251 is the format for microsomal assays
         {% if organism %}and assays.assay_organism = '{{ organism }}' {% endif %}
@@ -884,9 +886,10 @@ class PPBChEMBLCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = 'PPB' and
+        (activities.standard_relation = '=' or activities.standard_relation IS NULL) and
         activities.standard_units = '%' and
-        assay_type in ('ADMET') and
-        activities.bao_format = 'BAO_0000366'
+        assay_type in ('A', 'B') and
+        assays.bao_format = 'BAO_0000366'
         -- BAO_0000366 is the format for cell-free assays
         {% if organism %}and assays.assay_organism = '{{ organism }}' {% endif %}
         """
@@ -922,10 +925,10 @@ class Caco2ChEMBLCurator(ChEMBLCuratorBase):
         direction_filters = []
         if self.a_to_b:
             # Common patterns for Apical to Basolateral
-            direction_filters.append("assays.description ILIKE '%A-B%' OR assays.description ILIKE '%A to B%' OR assays.description ILIKE '%apical to basolateral%'")
+            direction_filters.append("assays.description ILIKE '%A-B%' OR assays.description ILIKE '%A to B%' OR assays.description ILIKE '%apical to basolateral%' OR assays.description ILIKE '%apical to basal%'")
         if self.b_to_a:
             # Common patterns for Basolateral to Apical
-            direction_filters.append("assays.description ILIKE '%B-A%' OR assays.description ILIKE '%B to A%' OR assays.description ILIKE '%basolateral to apical%'")
+            direction_filters.append("assays.description ILIKE '%B-A%' OR assays.description ILIKE '%B to A%' OR assays.description ILIKE '%basolateral to apical%' OR assays.description ILIKE '%basal to apical%'")
 
         # Combine filters with OR if both are selected, otherwise just use the one
         if direction_filters:
@@ -979,6 +982,7 @@ class Caco2ChEMBLCurator(ChEMBLCuratorBase):
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = 'Papp' and
         activities.standard_units in ('ucm/s', '10''-6 cm/s', '10-6 cm/s', '10^-6 cm/s', '10''-5 cm/s', '10^-5 cm/s', '10-5 cm/s', 'nm/s') and
+        (activities.standard_relation = '=' or activities.standard_relation IS NULL) and
         assays.bao_format = 'BAO_0000219' and
         assays.assay_organism = 'Homo sapiens' and
         assays.assay_cell_type = 'Caco-2' {{ direction_clause }}
@@ -1027,11 +1031,11 @@ class MDCKChEMBLCurator(ChEMBLCuratorBase):
     )
 
     a_to_b: bool = Field(
-        True, description="Filter for Apical to Basolateral direction."
+        False, description="Filter for Apical to Basolateral direction."
     )
 
     b_to_a: bool = Field(
-        True, description="Filter for Basolateral to Apical direction."
+        False, description="Filter for Basolateral to Apical direction."
     )
 
     @field_validator("cell_type")
@@ -1051,10 +1055,10 @@ class MDCKChEMBLCurator(ChEMBLCuratorBase):
         direction_filters = []
         if self.a_to_b:
             # Common patterns for Apical to Basolateral
-            direction_filters.append("assays.description ILIKE '%A-B%' OR assays.description ILIKE '%A to B%' OR assays.description ILIKE '%apical to basolateral%'")
+            direction_filters.append("assays.description ILIKE '%A-B%' OR assays.description ILIKE '%A to B%' OR assays.description ILIKE '%apical to basolateral%' OR assays.description ILIKE '%apical to basal%'")
         if self.b_to_a:
             # Common patterns for Basolateral to Apical
-            direction_filters.append("assays.description ILIKE '%B-A%' OR assays.description ILIKE '%B to A%' OR assays.description ILIKE '%basolateral to apical%'")
+            direction_filters.append("assays.description ILIKE '%B-A%' OR assays.description ILIKE '%B to A%' OR assays.description ILIKE '%basolateral to apical%' OR assays.description ILIKE '%basal to apical%'")
 
         # Combine filters with OR if both are selected, otherwise just use the one
         if direction_filters:
@@ -1107,6 +1111,7 @@ class MDCKChEMBLCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = 'Papp' and
+        (activities.standard_relation = '=' or activities.standard_relation IS NULL) and
         assays.bao_format = 'BAO_0000219' and
         assays.assay_organism = 'Canis lupus familiaris' and
         assays.assay_cell_type = '{{ cell_type }}' {{ direction_clause }}
