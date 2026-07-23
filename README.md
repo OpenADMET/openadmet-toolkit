@@ -5,7 +5,8 @@ OpenADMET Toolkit
 [![GitHub Actions Build Status](https://github.com/OpenADMET/openadmet_toolkit/workflows/CI/badge.svg)](https://github.com/OpenADMET/openadmet_toolkit/actions?query=workflow%3ACI)
 [![codecov](https://codecov.io/gh/OpenADMET/openadmet_toolkit/branch/main/graph/badge.svg)](https://codecov.io/gh/OpenADMET/openadmet_toolkit/branch/main)
 [![Documentation Status](https://readthedocs.org/projects/openadmet-toolkit/badge/?version=latest)](https://openadmet-toolkit.readthedocs.io/en/latest/?badge=latest)
-[![Google Colab](https://img.shields.io/badge/Google%20Colab-F9AB00?logo=googlecolab&logoColor=fff)](https://try.openadmet.org)
+[![Google Colab](https://img.shields.io/badge/Google%20Colab-F9AB00?logo=googlecolab&logoColor=fff)](https://try.openadmet.org) [![DOI](https://zenodo.org/badge/893636530.svg)](https://doi.org/10.5281/zenodo.21504127)
+
 
 `openadmet-toolkit` contains helpful toolkit functionality for the large scale ADMET modelling conducted as part of the [OpenADMET project](https://openadmet.org).
 Much of the functionality is focused around data scraping, cleaning, screening and preparation for downstream machine learning workflows. Additional one-off workflows related to functionality used directly by the OpenADMET team are also contained in this repo. You can see a demonstration of some toolkit functionality in our [Example Tutorials](https://demos.openadmet.org) and [Google Colab](https://try.openadmet.org). More developed functionality for machine learning is contained in the `OpenADMET Models` [repo](https://github.com/OpenADMET/openadmet-models/tree/main).
