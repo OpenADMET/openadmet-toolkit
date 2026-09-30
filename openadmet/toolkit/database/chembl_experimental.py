@@ -12,7 +12,7 @@ import warnings
 
 from openadmet.toolkit.chemoinformatics.rdkit_funcs import canonical_smiles, smiles_to_inchikey
 
-from openadmet.toolkit.database.chembl import ChemblConnector, ChEMBLTargetCuratorBase
+from openadmet.toolkit.database.chembl import ChEMBLDatabaseConnector, ChEMBLTargetCuratorBase
 
 
 # this implements curation as described in the landrum paper

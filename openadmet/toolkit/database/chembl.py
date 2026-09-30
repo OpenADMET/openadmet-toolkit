@@ -8,7 +8,7 @@ import chembl_downloader
 import datamol as dm
 import duckdb
 import pandas as pd
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 from jinja2 import Template
 
 
@@ -106,7 +106,15 @@ class ChEMBLDatabaseConnector(BaseModel):
 
 
 class ChEMBLCuratorBase(BaseModel):
-    chembl_version: int = Field(34, description="Version of the ChEMBL database.")
+    # forbid unknown kwargs so that typos (e.g. a misspelt version kwarg) raise
+    # instead of being silently dropped and falling back to the defaults
+    model_config = ConfigDict(extra="forbid")
+
+    chembl_version: int = Field(
+        34,
+        description="Version of the ChEMBL database. Can also be passed as `version`.",
+        validation_alias=AliasChoices("chembl_version", "version"),
+    )
     _chembl_connector: Optional[ChEMBLDatabaseConnector] = None
     value_field: str = Field("standard_value", description="Field to perform aggregation on")
 
