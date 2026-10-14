@@ -1,4 +1,5 @@
 import abc
+import logging
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Optional, Union, List
@@ -8,11 +9,13 @@ import chembl_downloader
 import datamol as dm
 import duckdb
 import pandas as pd
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 from jinja2 import Template
 
 
 from openadmet.toolkit.chemoinformatics.rdkit_funcs import canonical_smiles, smiles_to_inchikey
+
+logger = logging.getLogger(__name__)
 
 with resources.open_text("openadmet.toolkit.data", "ivive_scaling_factors.json") as f:
     species_df = pd.read_json(f)
@@ -43,22 +46,49 @@ class ChEMBLDatabaseConnector(BaseModel):
                 f"Invalid ChEMBL version: {version}. Available versions: {chembl_downloader.versions()}"
             )
 
+    @staticmethod
+    def latest_chembl_version() -> int:
+        """
+        Look up the latest ChEMBL release via ``chembl_downloader.latest``.
+
+        This requires network access to the ChEMBL FTP server.
+
+        Returns
+        -------
+        int
+            The latest ChEMBL release number.
+        """
+        try:
+            return int(chembl_downloader.latest())
+        except Exception as e:
+            raise RuntimeError(
+                "Could not determine the latest ChEMBL version "
+                "(network access to the ChEMBL FTP server is required). "
+                "Pass an explicit `chembl_version` to use a specific release instead."
+            ) from e
+
     @classmethod
-    def create_chembl_database(cls, version: int) -> "ChEMBLDatabaseConnector":
+    def create_chembl_database(
+        cls, version: Optional[int] = None
+    ) -> "ChEMBLDatabaseConnector":
         """
         Create a new ChEMBL database by downloading the SQLite database.
 
         Parameters
         ----------
 
-        version: int
-            Version of the ChEMBL database to download.
+        version: int, optional
+            Version of the ChEMBL database to download. If ``None`` (the default),
+            the latest release is looked up with ``chembl_downloader.latest`` and used.
 
         Returns
         -------
         ChEMBLDatabaseConnector
             Instance of the ChEMBLDatabaseConnector class.
         """
+        if version is None:
+            version = cls.latest_chembl_version()
+            logger.info("Using latest ChEMBL version: %s", version)
         # cls.check_chembl_version(version)  # sometimes flaky if chembl webservice is slow
         path = chembl_downloader.download_extract_sqlite(version=str(version))
         return cls(version=version, sqlite_path=path)
@@ -106,7 +136,19 @@ class ChEMBLDatabaseConnector(BaseModel):
 
 
 class ChEMBLCuratorBase(BaseModel):
-    chembl_version: int = Field(34, description="Version of the ChEMBL database.")
+    # forbid unknown kwargs so that typos (e.g. a misspelt version kwarg) raise
+    # instead of being silently dropped and falling back to the defaults
+    model_config = ConfigDict(extra="forbid")
+
+    chembl_version: Optional[int] = Field(
+        None,
+        description=(
+            "Version of the ChEMBL database. Can also be passed as `version`. "
+            "If None (the default), the latest ChEMBL release is used; "
+            "after construction this attribute holds the resolved version."
+        ),
+        validation_alias=AliasChoices("chembl_version", "version"),
+    )
     _chembl_connector: Optional[ChEMBLDatabaseConnector] = None
     value_field: str = Field("standard_value", description="Field to perform aggregation on")
 
@@ -115,6 +157,9 @@ class ChEMBLCuratorBase(BaseModel):
         self._chembl_connector = ChEMBLDatabaseConnector.create_chembl_database(
             version=self.chembl_version
         )
+        # backfill so `chembl_version` always reports the release actually used,
+        # even when the user relied on the "latest" default
+        self.chembl_version = self._chembl_connector.version
 
 
     @abc.abstractmethod
