@@ -290,7 +290,11 @@ class ProximityFilter(BaseFilter):
         if not sites_a or not sites_b:
             return pd.NA
         dist_matrix = Chem.GetDistanceMatrix(mol)
-        self.min_dist = np.inf
+
+        # a local, not self.min_dist: that field holds the threshold filter()
+        # compares against, so writing the per-row measurement into it would
+        # leave filter() thresholding on whichever row was measured last
+        min_dist = np.inf
 
         # Flatten all atom indices from all matches in sites_a and sites_b
         atoms_a = [atom for match in sites_a.values() for match_tuple in match for atom in match_tuple]
@@ -299,10 +303,10 @@ class ProximityFilter(BaseFilter):
         for a in atoms_a:
             for b in atoms_b:
                 d = dist_matrix[a, b]
-                if d < self.min_dist:
-                    self.min_dist = d
+                if d < min_dist:
+                    min_dist = d
 
-        return self.min_dist if self.min_dist != np.inf else pd.NA
+        return min_dist if min_dist != np.inf else pd.NA
 
 class pKaFilter(BaseFilter):
     """
