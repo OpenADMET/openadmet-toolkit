@@ -92,3 +92,32 @@ def test_proximity_filter(test_data):
     )
     dat = filter.filter(smiles=test_data["cxsmiles"])
     assert dat.get_passes() == [False, False, False, True, False]
+
+
+def test_proximity_filter_does_not_consume_its_own_threshold():
+    # The per-molecule measurement used to be written to self.min_dist, which is
+    # the threshold filter() compares against, so the threshold became whichever
+    # molecule was measured last and the verdicts depended on the input order.
+    # Both of these have their O and Br between 1 and 20 bonds apart, 2 and 9
+    # respectively, so both pass in either order.
+    smiles = ["OCBr", "OCCCCCCCCBr"]
+
+    def run(order):
+        filter = ProximityFilter(
+            smarts_list_a=["O"],
+            smarts_list_b=["Br"],
+            names_list_a=["hydroxyl"],
+            names_list_b=["bromine"],
+            min_dist=1,
+            max_dist=20,
+        )
+        output = filter.filter(smiles=pd.Series(order))
+        return output.get_passes(), filter.min_dist
+
+    forward_passes, forward_threshold = run(smiles)
+    reverse_passes, reverse_threshold = run(smiles[::-1])
+
+    assert forward_passes == [True, True]
+    assert reverse_passes == [True, True]
+    assert forward_threshold == 1
+    assert reverse_threshold == 1
