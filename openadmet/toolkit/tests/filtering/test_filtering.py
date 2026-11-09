@@ -94,13 +94,17 @@ def test_proximity_filter(test_data):
     assert dat.get_passes() == [False, False, False, True, False]
 
 
-def test_proximity_filter_does_not_consume_its_own_threshold():
+@pytest.mark.parametrize("min_dist", [1, None])
+def test_proximity_filter_does_not_consume_its_own_threshold(min_dist):
     # The per-molecule measurement used to be written to self.min_dist, which is
     # the threshold filter() compares against, so the threshold became whichever
     # molecule was measured last and the verdicts depended on the input order.
     # Both of these have their O and Br between 1 and 20 bonds apart, 2 and 9
-    # respectively, so both pass in either order.
+    # respectively, so both pass in either order, with or without a minimum.
     smiles = ["OCBr", "OCCCCCCCCBr"]
+
+    # None means leaving min_dist at its default rather than passing it
+    min_dist_kwargs = {} if min_dist is None else {"min_dist": min_dist}
 
     def run(order):
         filter = ProximityFilter(
@@ -108,16 +112,18 @@ def test_proximity_filter_does_not_consume_its_own_threshold():
             smarts_list_b=["Br"],
             names_list_a=["hydroxyl"],
             names_list_b=["bromine"],
-            min_dist=1,
             max_dist=20,
+            **min_dist_kwargs,
         )
         output = filter.filter(smiles=pd.Series(order))
-        return output.get_passes(), filter.min_dist
+        return list(output.get_values()), output.get_passes(), filter.min_dist
 
-    forward_passes, forward_threshold = run(smiles)
-    reverse_passes, reverse_threshold = run(smiles[::-1])
+    forward_dists, forward_passes, forward_threshold = run(smiles)
+    reverse_dists, reverse_passes, reverse_threshold = run(smiles[::-1])
 
+    assert forward_dists == [2, 9]
+    assert reverse_dists == [9, 2]
     assert forward_passes == [True, True]
     assert reverse_passes == [True, True]
-    assert forward_threshold == 1
-    assert reverse_threshold == 1
+    assert forward_threshold == min_dist
+    assert reverse_threshold == min_dist
