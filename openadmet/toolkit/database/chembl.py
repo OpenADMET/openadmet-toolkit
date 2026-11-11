@@ -945,6 +945,65 @@ class PPBChEMBLCurator(ChEMBLCuratorBase):
         return query
 
 
+# Factors converting a ChEMBL Papp standard_units string onto 10^-6 cm/s.
+# Keys are lower case because ChEMBL is not consistent about case. The
+# apostrophe spellings are how ChEMBL writes the exponent; they appear in the
+# queries below with a doubled quote, which is how a literal quote is escaped
+# inside a SQL string.
+PAPP_UNIT_FACTORS = {
+    "ucm/s": 1.0,
+    "10^-6 cm/s": 1.0,
+    "10-6 cm/s": 1.0,
+    "10'-6 cm/s": 1.0,
+    "10^-5 cm/s": 10.0,
+    "10-5 cm/s": 10.0,
+    "10'-5 cm/s": 10.0,
+    "nm/s": 0.1,
+}
+
+# The same units as a SQL literal list, so that the Papp queries cannot admit a
+# unit that the conversion above does not know how to convert.
+PAPP_UNITS_SQL = ", ".join("'" + unit.replace("'", "''") + "'" for unit in PAPP_UNIT_FACTORS)
+
+
+def papp_to_micro_cm_per_s(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Put Papp activity values onto a common unit of 10^-6 cm/s.
+
+    Parameters
+    ----------
+    df: pd.DataFrame
+        Activity data carrying `standard_value` and `standard_units` columns.
+
+    Returns
+    -------
+    pd.DataFrame
+        The same data, with `standard_value` scaled onto 10^-6 cm/s and
+        `standard_units` relabeled to match.
+
+    Raises
+    ------
+    ValueError
+        If any row carries a unit that is not in `PAPP_UNIT_FACTORS`. Such a row
+        cannot be scaled, and relabeling it anyway would record a value in the
+        wrong unit with nothing left to recover the real one from.
+    """
+    factors = df["standard_units"].str.lower().map(PAPP_UNIT_FACTORS)
+
+    unconvertible = factors.isna()
+    if unconvertible.any():
+        found = sorted(set(df.loc[unconvertible, "standard_units"].astype(str)))
+        raise ValueError(
+            f"Cannot convert Papp units {found} onto 10^-6 cm/s. "
+            f"The convertible units are {sorted(PAPP_UNIT_FACTORS)}."
+        )
+
+    df["standard_value"] = df["standard_value"] * factors
+    df["standard_units"] = "10^-6 cm/s"
+
+    return df
+
+
 class Caco2ChEMBLCurator(ChEMBLCuratorBase):
     """
     Curator for Caco-2 permeability data from ChEMBL.
@@ -1026,7 +1085,7 @@ class Caco2ChEMBLCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = 'Papp' and
-        activities.standard_units in ('ucm/s', '10''-6 cm/s', '10-6 cm/s', '10^-6 cm/s', '10''-5 cm/s', '10^-5 cm/s', '10-5 cm/s', 'nm/s') and
+        activities.standard_units in ({{ papp_units }}) and
         (activities.standard_relation = '=' or activities.standard_relation IS NULL) and
         assays.bao_format = 'BAO_0000219' and
         assays.assay_organism = 'Homo sapiens' and
@@ -1035,33 +1094,13 @@ class Caco2ChEMBLCurator(ChEMBLCuratorBase):
 
         # Render the query in Python
         template = Template(query)
-        query = template.render(direction_clause=direction_clause)
+        query = template.render(direction_clause=direction_clause, papp_units=PAPP_UNITS_SQL)
         return query
 
     def get_activity_data(self, return_as: str = "df") -> pd.DataFrame:
         df = super().get_activity_data(return_as)
 
-        # Dictionary keys in lowercase for easier matching
-        conversion_factors = {
-            'ucm/s': 1.0,
-            "10^-6 cm/s": 1.0,
-            "10-6 cm/s": 1.0,
-            "10^-5 cm/s": 10.0,
-            "10-5 cm/s": 10.0,
-            "nm/s": 0.1
-        }
-
-        # Normalize unit strings to lower case for matching
-        unit_key = df['standard_units'].str.lower()
-
-        # Map the factors and multiply (vectorized operation is much faster than .apply)
-        factors = unit_key.map(conversion_factors).fillna(1.0)
-        df['standard_value'] = df['standard_value'] * factors
-
-        # Force the new unit label
-        df['standard_units'] = "10^-6 cm/s"
-
-        return df
+        return papp_to_micro_cm_per_s(df)
 
 
 class MDCKChEMBLCurator(ChEMBLCuratorBase):
@@ -1088,6 +1127,7 @@ class MDCKChEMBLCurator(ChEMBLCuratorBase):
         allowed = ['MDCK', "MDCK-II", "MDCK-MDR1"]
         if value not in allowed:
             raise ValueError("Invalid cell type for MDCKChEMBLCurator. Must be 'MDCK', 'MDCK-II', or 'MDCK-MDR1'.")
+        return value
 
 
     def get_templated_query(self) -> str:
@@ -1156,6 +1196,7 @@ class MDCKChEMBLCurator(ChEMBLCuratorBase):
         join molecule_hierarchy ON molecule_dictionary.molregno = molecule_hierarchy.molregno
         join compound_structures ON molecule_hierarchy.parent_molregno = compound_structures.molregno
         where activities.standard_type = 'Papp' and
+        activities.standard_units in ({{ papp_units }}) and
         (activities.standard_relation = '=' or activities.standard_relation IS NULL) and
         assays.bao_format = 'BAO_0000219' and
         assays.assay_organism = 'Canis lupus familiaris' and
@@ -1164,30 +1205,14 @@ class MDCKChEMBLCurator(ChEMBLCuratorBase):
 
         # Render the query in Python
         template = Template(query)
-        query = template.render(cell_type=self.cell_type, direction_clause=direction_clause)
+        query = template.render(
+            cell_type=self.cell_type,
+            direction_clause=direction_clause,
+            papp_units=PAPP_UNITS_SQL,
+        )
         return query
 
     def get_activity_data(self, return_as: str = "df") -> pd.DataFrame:
         df = super().get_activity_data(return_as)
 
-        # Dictionary keys in lowercase for easier matching
-        conversion_factors = {
-            'ucm/s': 1.0,
-            "10^-6 cm/s": 1.0,
-            "10-6 cm/s": 1.0,
-            "10^-5 cm/s": 10.0,
-            "10-5 cm/s": 10.0,
-            "nm/s": 0.1
-        }
-
-        # Normalize unit strings to lower case for matching
-        unit_key = df['standard_units'].str.lower()
-
-        # Map the factors and multiply (vectorized operation is much faster than .apply)
-        factors = unit_key.map(conversion_factors).fillna(1.0)
-        df['standard_value'] = df['standard_value'] * factors
-
-        # Force the new unit label
-        df['standard_units'] = "10^-6 cm/s"
-
-        return df
+        return papp_to_micro_cm_per_s(df)
